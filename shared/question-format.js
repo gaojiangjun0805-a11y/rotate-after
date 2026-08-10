@@ -6,7 +6,7 @@
   'use strict';
 
   const APP_NAME = '旋转之后';
-  const VERSION = 4;
+  const VERSION = 5;
   const SIZE = 10;
   const EXIT_COL = 5;
   const EXIT_SIDES = Object.freeze(['top', 'right', 'bottom', 'left']);
@@ -24,6 +24,8 @@
   });
   const MIN_BALL_COUNT = 3;
   const MAX_BALL_COUNT = 6;
+  const MIN_INSTRUCTION_COUNT = 1;
+  const MAX_INSTRUCTION_COUNT = 50;
   const DEFAULT_NAME = '未命名题目';
 
   function targetForCount(count) {
@@ -225,8 +227,9 @@
     if (hasExitBall) errors.push('球的初始位置不能占用出口格。');
     if (hasOverlap) errors.push('所有球必须位于不同格子。');
 
-    if (question.instructions.length < 1 || question.instructions.length > 20) {
-      errors.push('旋转次数必须为 1 至 20。');
+    if (question.instructions.length < MIN_INSTRUCTION_COUNT
+      || question.instructions.length > MAX_INSTRUCTION_COUNT) {
+      errors.push(`旋转次数必须为 ${MIN_INSTRUCTION_COUNT} 至 ${MAX_INSTRUCTION_COUNT}。`);
     } else if (!question.instructions.every(value => value === 1 || value === -1)) {
       errors.push('每一步旋转只能是顺时针或逆时针。');
     }
@@ -273,6 +276,8 @@
     BALL_META,
     MIN_BALL_COUNT,
     MAX_BALL_COUNT,
+    MIN_INSTRUCTION_COUNT,
+    MAX_INSTRUCTION_COUNT,
     DEFAULT_NAME,
     targetForCount,
     copyWalls,

@@ -301,9 +301,15 @@
 
   function setRotationCount(model, count) {
     const value = Number(count);
-    if (!Number.isInteger(value) || value < 1 || value > 20) throw new Error('旋转次数必须为 1 至 20。');
+    if (!Number.isInteger(value)
+      || value < Format.MIN_INSTRUCTION_COUNT
+      || value > Format.MAX_INSTRUCTION_COUNT) {
+      throw new Error(`旋转次数必须为 ${Format.MIN_INSTRUCTION_COUNT} 至 ${Format.MAX_INSTRUCTION_COUNT}。`);
+    }
     const instructions = model.question.instructions.slice(0, value);
-    while (instructions.length < value) instructions.push(DEFAULT_INSTRUCTIONS[instructions.length]);
+    while (instructions.length < value) {
+      instructions.push(DEFAULT_INSTRUCTIONS[instructions.length % DEFAULT_INSTRUCTIONS.length]);
+    }
     return makeModel({ ...model.question, instructions }, model.extraInitialWalls);
   }
 
@@ -450,20 +456,13 @@
     const solutionReleasedCount = root.document.getElementById('solutionReleasedCount');
     const solutionWallCount = root.document.getElementById('solutionWallCount');
     const nameInput = root.document.getElementById('questionNameInput');
-    const countSelect = root.document.getElementById('rotationCountSelect');
+    const countInput = root.document.getElementById('rotationCountInput');
     const ballCountSelect = root.document.getElementById('ballCountSelect');
     const exitSideSelect = root.document.getElementById('exitSideSelect');
     const exitIndexSelect = root.document.getElementById('exitIndexSelect');
     const instructionGrid = root.document.getElementById('instructionGrid');
     const targetOrder = root.document.getElementById('targetOrder');
     const fileInput = root.document.getElementById('questionFileInput');
-
-    for (let count = 1; count <= 20; count += 1) {
-      const option = root.document.createElement('option');
-      option.value = String(count);
-      option.textContent = `${count} 步`;
-      countSelect.appendChild(option);
-    }
 
     for (let count = Format.MIN_BALL_COUNT; count <= Format.MAX_BALL_COUNT; count += 1) {
       const option = root.document.createElement('option');
@@ -693,7 +692,7 @@
 
     function render() {
       if (nameInput !== root.document.activeElement) nameInput.value = model.question.name;
-      countSelect.value = String(model.question.instructions.length);
+      countInput.value = String(model.question.instructions.length);
       ballCountSelect.value = String(model.question.ballCount);
       exitSideSelect.value = model.question.exit.side;
       exitIndexSelect.value = String(model.question.exit.index);
@@ -754,11 +753,16 @@
       model = renameQuestion(model, nameInput.value);
       render();
     });
-    countSelect.addEventListener('change', () => {
-      model = setRotationCount(model, Number(countSelect.value));
-      invalidateSolutions();
-      render();
-      setMessage(`旋转次数已设为 ${model.question.instructions.length} 步。`);
+    countInput.addEventListener('change', () => {
+      try {
+        model = setRotationCount(model, Number(countInput.value));
+        invalidateSolutions();
+        render();
+        setMessage(`旋转次数已设为 ${model.question.instructions.length} 步。`);
+      } catch (error) {
+        countInput.value = String(model.question.instructions.length);
+        setMessage(error.message, 'error');
+      }
     });
     ballCountSelect.addEventListener('change', () => {
       model = setBallCount(model, Number(ballCountSelect.value));

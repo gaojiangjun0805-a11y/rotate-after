@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1118">
   <link rel="icon" href="data:,">
   <title>旋转之后 · 出题端</title>
-  <link rel="stylesheet" href="shared/common.css?v=6">
+  <link rel="stylesheet" href="shared/common.css?v=8">
 </head>
 <body data-app="setter">
   <div class="app-shell">
@@ -69,7 +69,7 @@
           <div class="control-row">
             <label class="field">
               <span>旋转次数</span>
-              <select id="rotationCountSelect" aria-label="旋转次数"></select>
+              <input id="rotationCountInput" class="rotation-count-input" type="number" min="1" max="50" step="1" value="20" inputmode="numeric" aria-label="旋转次数">
             </label>
             <span class="section-copy">↻ 顺时针 · ↺ 逆时针</span>
           </div>
@@ -134,10 +134,10 @@
   </div>
 
   <script src="vendor/three.min.js"></script>
-  <script src="shared/question-format.js?v=7"></script>
+  <script src="shared/question-format.js?v=8"></script>
   <script src="shared/maze-core.js?v=7"></script>
   <script src="shared/solution-generator.js?v=7"></script>
   <script src="shared/board-ui.js?v=7"></script>
-  <script src="setter.js?v=7"></script>
+  <script src="setter.js?v=8"></script>
 </body>
 </html>

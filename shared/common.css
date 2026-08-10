@@ -105,6 +105,7 @@ input, select {
 .field > span { color: var(--muted); font-size: 12px; }
 .field.grow { flex: 1 1 180px; }
 .field.grow input { width: 100%; }
+.rotation-count-input { width: 112px; }
 
 .board-frame {
   position: relative;
