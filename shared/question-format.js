@@ -89,6 +89,26 @@
         && row.every(value => typeof value === 'boolean'));
   }
 
+  function savedSolutionsForSerialization(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap(solution => {
+      if (!solution || typeof solution !== 'object'
+        || !Number.isInteger(solution.completionStep)
+        || solution.completionStep < 0
+        || !Number.isInteger(solution.wallCount)
+        || solution.wallCount < 0
+        || typeof solution.fingerprint !== 'string'
+        || !validGrid(solution.walls?.hw, SIZE + 1, SIZE)
+        || !validGrid(solution.walls?.vw, SIZE, SIZE + 1)) return [];
+      return [{
+        completionStep: solution.completionStep,
+        wallCount: solution.wallCount,
+        fingerprint: solution.fingerprint,
+        walls: copyWalls(solution.walls),
+      }];
+    });
+  }
+
   function validate(raw) {
     const question = normalize(raw);
     const errors = [];
@@ -173,7 +193,10 @@
   function serialize(question) {
     const result = validate(question);
     if (!result.ok) throw new Error(result.errors.join('\n'));
-    return JSON.stringify(result.question, null, 2);
+    const payload = { ...result.question };
+    const savedSolutions = savedSolutionsForSerialization(question?.savedSolutions);
+    if (savedSolutions.length) payload.savedSolutions = savedSolutions;
+    return JSON.stringify(payload, null, 2);
   }
 
   function fileName(question) {

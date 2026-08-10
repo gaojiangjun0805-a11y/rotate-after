@@ -42,6 +42,62 @@
     return Maze.cloneWalls(extras);
   }
 
+  function cloneSavedSolutions(solutions = []) {
+    return solutions.map(solution => ({
+      solved: true,
+      completionStep: solution.completionStep,
+      wallCount: solution.wallCount,
+      fingerprint: solution.fingerprint,
+      walls: Maze.cloneWalls(solution.walls),
+    }));
+  }
+
+  function normalizedAnswerWalls(question, walls) {
+    const size = question.size;
+    const validGrid = (grid, rows, cols) => Array.isArray(grid)
+      && grid.length === rows
+      && grid.every(row => Array.isArray(row)
+        && row.length === cols
+        && row.every(value => typeof value === 'boolean'));
+    if (!validGrid(walls?.hw, size + 1, size)
+      || !validGrid(walls?.vw, size, size + 1)) return null;
+    const normalized = Solver.emptyAnswerWalls(question);
+    for (const edge of Solver.editableEdges(question)) {
+      if (edge.type === 'h') normalized.hw[edge.r][edge.c] = walls.hw[edge.r][edge.c];
+      else normalized.vw[edge.r][edge.c] = walls.vw[edge.r][edge.c];
+    }
+    return normalized;
+  }
+
+  function canonicalSavedSolution(question, rawSolution) {
+    if (!Solver || !rawSolution?.walls) return null;
+    try {
+      const walls = normalizedAnswerWalls(question, rawSolution.walls);
+      if (!walls) return null;
+      const result = Solver.evaluate(question, walls);
+      if (!result.solved) return null;
+      return {
+        solved: true,
+        completionStep: result.completionStep,
+        wallCount: result.wallCount,
+        fingerprint: Solver.answerFingerprint(question, walls),
+        walls,
+      };
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function hydrateSavedSolutions(question, rawSolutions) {
+    const unique = new Map();
+    for (const rawSolution of Array.isArray(rawSolutions) ? rawSolutions : []) {
+      const solution = canonicalSavedSolution(question, rawSolution);
+      if (!solution || unique.has(solution.fingerprint)) continue;
+      unique.set(solution.fingerprint, solution);
+    }
+    return [...unique.values()].sort(Solver.compareSolutions);
+  }
+
   function composeQuestionWalls(balls, extras) {
     const walls = Maze.emptyWalls(Format.SIZE, Format.EXIT_COL);
     for (let r = 1; r < Format.SIZE; r += 1) {
@@ -71,7 +127,7 @@
     return extras;
   }
 
-  function makeModel(question, extras) {
+  function makeModel(question, extras, savedSolutions = []) {
     const copiedExtras = cloneExtras(extras);
     const ballCount = Number(question.ballCount || question.balls.length || Format.TARGET.length);
     const target = Format.targetForCount(ballCount);
@@ -90,7 +146,12 @@
     };
     const questionWalls = composeQuestionWalls(copiedQuestion.balls, copiedExtras);
     copiedQuestion.initialWalls = Maze.cloneWalls(questionWalls);
-    return { question: copiedQuestion, extraInitialWalls: copiedExtras, questionWalls };
+    return {
+      question: copiedQuestion,
+      extraInitialWalls: copiedExtras,
+      questionWalls,
+      savedSolutions: cloneSavedSolutions(savedSolutions),
+    };
   }
 
   function defaultQuestion() {
@@ -121,7 +182,12 @@
     const extras = result.question.extraInitialWalls
       ? cloneExtras(result.question.extraInitialWalls)
       : extractExtras({ ...state.question, initialWalls: state.questionWalls });
-    return makeModel(state.question, extras);
+    const model = makeModel(state.question, extras);
+    return makeModel(
+      model.question,
+      model.extraInitialWalls,
+      hydrateSavedSolutions(model.question, rawQuestion.savedSolutions),
+    );
   }
 
   function moveBall(model, id, r, c) {
@@ -245,7 +311,11 @@
 
   function renameQuestion(model, name) {
     const normalized = String(name || '').trim().slice(0, 40) || Format.DEFAULT_NAME;
-    return makeModel({ ...model.question, name: normalized }, model.extraInitialWalls);
+    return makeModel(
+      { ...model.question, name: normalized },
+      model.extraInitialWalls,
+      model.savedSolutions,
+    );
   }
 
   function extraWallCount(model) {
@@ -265,7 +335,31 @@
     };
     const result = Format.validate(question);
     if (!result.ok) throw new Error(result.errors.join('\n'));
-    return result.question;
+    const exported = result.question;
+    if (model.savedSolutions.length) {
+      exported.savedSolutions = model.savedSolutions.map(solution => ({
+        completionStep: solution.completionStep,
+        wallCount: solution.wallCount,
+        fingerprint: solution.fingerprint,
+        walls: Maze.cloneWalls(solution.walls),
+      }));
+    }
+    return exported;
+  }
+
+  function saveExcellentSolution(model, solution) {
+    const saved = canonicalSavedSolution(model.question, solution);
+    if (!saved) throw new Error('该答案无法通过当前题面验证，不能保存。');
+    const savedSolutions = hydrateSavedSolutions(
+      model.question,
+      [...model.savedSolutions, saved],
+    );
+    return makeModel(model.question, model.extraInitialWalls, savedSolutions);
+  }
+
+  function removeExcellentSolution(model, fingerprint) {
+    const savedSolutions = model.savedSolutions.filter(solution => solution.fingerprint !== fingerprint);
+    return makeModel(model.question, model.extraInitialWalls, savedSolutions);
   }
 
   function previewSolution(model, solution) {
@@ -318,7 +412,7 @@
     let model = createModel();
     let board = null;
     let solutions = [];
-    let activeSolutionIndex = -1;
+    let activeSolution = null;
     let solving = false;
     let solutionSearchMode = 'idle';
     let solutionGeneration = 0;
@@ -332,6 +426,8 @@
     const result = root.document.getElementById('setterResult');
     const solutionResult = root.document.getElementById('solutionResult');
     const solutionList = root.document.getElementById('solutionList');
+    const savedSolutionList = root.document.getElementById('savedSolutionList');
+    const savedSolutionCount = root.document.getElementById('savedSolutionCount');
     const generateButton = root.document.getElementById('generateSolutionsBtn');
     const improveBestButton = root.document.getElementById('improveBestSolutionBtn');
     const deployBestButton = root.document.getElementById('deployBestSolutionBtn');
@@ -374,7 +470,19 @@
     }
 
     function getActiveSolution() {
-      return solutions[activeSolutionIndex] || null;
+      return activeSolution;
+    }
+
+    function sameSolution(left, right) {
+      return Boolean(left && right && left.fingerprint === right.fingerprint);
+    }
+
+    function getBestKnownSolution() {
+      return mergeSolutions(solutions, model.savedSolutions, 1)[0] || null;
+    }
+
+    function isExcellentSolution(solution) {
+      return model.savedSolutions.some(saved => sameSolution(saved, solution));
     }
 
     function renderSearchControls() {
@@ -383,15 +491,15 @@
       generateButton.disabled = solving && !generating;
       generateButton.textContent = generating
         ? '停止生成'
-        : (solutions.length ? '继续生成 3 个答案' : '生成 3 个答案');
-      improveBestButton.disabled = (!solutions.length && !improving) || (solving && !improving);
+        : (getBestKnownSolution() ? '继续生成 3 个答案' : '生成 3 个答案');
+      improveBestButton.disabled = (!getBestKnownSolution() && !improving) || (solving && !improving);
       improveBestButton.textContent = improving ? '停止寻找' : '寻找更优解';
     }
 
     function renderVerificationControls() {
       const active = getActiveSolution();
       const canVerify = Boolean(active) && !solving;
-      deployBestButton.disabled = !solutions.length || solving || verificationBusy;
+      deployBestButton.disabled = !getBestKnownSolution() || solving || verificationBusy;
       returnQuestionButton.disabled = !active;
       stepVerifyButton.disabled = !canVerify
         || verificationBusy
@@ -408,7 +516,7 @@
       renderSearchControls();
     }
 
-    function resetVerification(mode = activeSolutionIndex >= 0 ? 'ready' : 'idle') {
+    function resetVerification(mode = activeSolution ? 'ready' : 'idle') {
       verificationGeneration += 1;
       verificationSession = null;
       verificationStep = 0;
@@ -419,30 +527,91 @@
       renderVerificationControls();
     }
 
-    function deploySolution(index) {
-      if (solving || !solutions[index]) return;
-      activeSolutionIndex = index;
+    function deploySolution(solution, label = '答案') {
+      if (solving || !solution) return;
+      activeSolution = solution;
       resetVerification('ready');
       render();
-      const solution = solutions[index];
-      const label = index === 0 ? '最优解' : `答案 ${index + 1}`;
-      setSolutionMessage(`${label}已部署：${solution.completionStep} 步，${solution.wallCount} 块板。可以逐步或连续验证。`, 'success');
+      setSolutionMessage(`${label} 已部署：${solution.completionStep} 步，${solution.wallCount} 块板。可以逐步或连续验证。`, 'success');
     }
 
     function renderSolutionList() {
       solutionList.innerHTML = '';
       solutions.forEach((solution, index) => {
+        const row = root.document.createElement('div');
+        row.className = 'solution-row';
         const button = root.document.createElement('button');
         button.type = 'button';
-        button.className = `solution-option${index === activeSolutionIndex ? ' active' : ''}`;
-        const label = index === 0 ? '★ 已保存最优解' : `答案 ${index + 1}`;
+        button.className = `solution-option${sameSolution(solution, activeSolution) ? ' active' : ''}`;
+        const label = sameSolution(solution, getBestKnownSolution()) ? '当前最优解' : `生成答案 ${index + 1}`;
         button.innerHTML = `<strong>${label}</strong><span>${solution.completionStep} 步 · ${solution.wallCount} 块板</span>`;
         button.title = `${label}，点击部署到当前题目`;
         button.disabled = solving || verificationBusy;
-        button.addEventListener('click', () => deploySolution(index));
-        solutionList.appendChild(button);
+        button.addEventListener('click', () => deploySolution(solution, label));
+
+        const saved = isExcellentSolution(solution);
+        const saveButton = root.document.createElement('button');
+        saveButton.type = 'button';
+        saveButton.className = `solution-save-button${saved ? ' saved' : ''}`;
+        saveButton.textContent = saved ? '★ 已保存' : '☆ 保存';
+        saveButton.title = saved ? '从优秀答案中移除' : '保存为优秀答案';
+        saveButton.disabled = solving || verificationBusy;
+        saveButton.addEventListener('click', () => {
+          model = saved
+            ? removeExcellentSolution(model, solution.fingerprint)
+            : saveExcellentSolution(model, solution);
+          render();
+          setSolutionMessage(saved
+            ? '已从优秀答案中移除。'
+            : `已保存优秀答案：${solution.completionStep} 步，${solution.wallCount} 块板。`, 'success');
+        });
+        row.append(button, saveButton);
+        solutionList.appendChild(row);
       });
+      renderSavedSolutionList();
       renderVerificationControls();
+    }
+
+    function renderSavedSolutionList() {
+      savedSolutionList.innerHTML = '';
+      savedSolutionCount.textContent = String(model.savedSolutions.length);
+      if (!model.savedSolutions.length) {
+        const empty = root.document.createElement('p');
+        empty.className = 'solution-list-empty';
+        empty.textContent = '生成答案后，可将满意的答案保存到这里。';
+        savedSolutionList.appendChild(empty);
+        return;
+      }
+      model.savedSolutions.forEach((solution, index) => {
+        const row = root.document.createElement('div');
+        row.className = 'solution-row';
+        const button = root.document.createElement('button');
+        button.type = 'button';
+        button.className = `solution-option${sameSolution(solution, activeSolution) ? ' active' : ''}`;
+        button.innerHTML = `<strong>优秀答案 ${index + 1}</strong><span>${solution.completionStep} 步 · ${solution.wallCount} 块板</span>`;
+        button.title = `优秀答案 ${index + 1}，点击部署到当前题目`;
+        button.disabled = solving || verificationBusy;
+        button.addEventListener('click', () => deploySolution(solution, `优秀答案 ${index + 1}`));
+
+        const removeButton = root.document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'solution-save-button saved';
+        removeButton.textContent = '移除';
+        removeButton.title = '从优秀答案中移除';
+        removeButton.disabled = solving || verificationBusy;
+        removeButton.addEventListener('click', () => {
+          model = removeExcellentSolution(model, solution.fingerprint);
+          if (sameSolution(solution, activeSolution)
+            && !solutions.some(candidate => sameSolution(candidate, solution))) {
+            activeSolution = null;
+            resetVerification('idle');
+          }
+          render();
+          setSolutionMessage('已从优秀答案中移除。');
+        });
+        row.append(button, removeButton);
+        savedSolutionList.appendChild(row);
+      });
     }
 
     function invalidateSolutions(message = '题面已改变，请重新生成答案。') {
@@ -452,7 +621,7 @@
       solving = false;
       solutionSearchMode = 'idle';
       solutions = [];
-      activeSolutionIndex = -1;
+      activeSolution = null;
       resetVerification('idle');
       renderSolutionList();
       setSolutionMessage(message);
@@ -612,7 +781,7 @@
         link.remove();
         root.setTimeout(() => URL.revokeObjectURL(url), 0);
         render();
-        setMessage(`题目“${question.name}”已保存。`, 'success');
+        setMessage(`题目“${question.name}”已保存，包含 ${model.savedSolutions.length} 个优秀答案。`, 'success');
       } catch (error) {
         setMessage(error.message, 'error');
       }
@@ -623,9 +792,11 @@
       if (!file) return;
       try {
         model = createModel(JSON.parse(await file.text()));
-        invalidateSolutions('题目已读取，请为当前题面生成答案。');
+        invalidateSolutions(model.savedSolutions.length
+          ? `题目已读取，并恢复 ${model.savedSolutions.length} 个优秀答案。`
+          : '题目已读取，请为当前题面生成答案。');
         render();
-        setMessage(`题目“${model.question.name}”读取成功。`, 'success');
+        setMessage(`题目“${model.question.name}”读取成功，优秀答案 ${model.savedSolutions.length} 个。`, 'success');
       } catch (error) {
         setMessage(error.message, 'error');
       } finally {
@@ -679,7 +850,7 @@
       renderVerificationControls();
     }
 
-    deployBestButton.addEventListener('click', () => deploySolution(0));
+    deployBestButton.addEventListener('click', () => deploySolution(getBestKnownSolution(), '当前最优解'));
 
     stepVerifyButton.addEventListener('click', async () => {
       if (!getActiveSolution() || verificationBusy
@@ -721,7 +892,7 @@
       verificationMode = 'continuous';
       verificationBusy = true;
       renderVerificationControls();
-      setSolutionMessage('正在连续验证已部署的最优解。');
+      setSolutionMessage('正在连续验证已部署答案。');
       const completionStep = verificationSession.simulation.score.completionStep;
       const events = eventsThroughStep(verificationSession.simulation.events, completionStep);
       const played = await board.playEvents(events, verificationPlaybackOptions(generation));
@@ -735,14 +906,14 @@
       if (!getActiveSolution()) return;
       resetVerification('ready');
       render();
-      setSolutionMessage('验证已重置，最优解板块保持部署状态。');
+      setSolutionMessage('验证已重置，答案板块保持部署状态。');
     });
 
     returnQuestionButton.addEventListener('click', () => {
-      activeSolutionIndex = -1;
+      activeSolution = null;
       resetVerification('idle');
       render();
-      setSolutionMessage(solutions.length ? '已返回题面，已保存最优解仍然保留。' : '尚未生成答案。');
+      setSolutionMessage(getBestKnownSolution() ? '已返回题面，生成结果与优秀答案仍然保留。' : '尚未生成答案。');
     });
 
     function stopSolutionSearch() {
@@ -765,7 +936,7 @@
         setSolutionMessage('答案生成器未加载。', 'error');
         return;
       }
-      const previousBest = solutions[0] || null;
+      const previousBest = getBestKnownSolution();
       if (mode === 'improve' && !previousBest) {
         setSolutionMessage('请先生成并保存一个最优解。', 'error');
         return;
@@ -775,13 +946,13 @@
       solveController = controller;
       solving = true;
       solutionSearchMode = mode;
-      activeSolutionIndex = -1;
+      activeSolution = null;
       resetVerification('idle');
       render();
       setSolutionMessage(mode === 'improve'
         ? `正在寻找优于 ${previousBest.completionStep} 步、${previousBest.wallCount} 块板的答案。`
         : (previousBest
-          ? `正在继续搜索。当前已保存最优解：${previousBest.completionStep} 步，${previousBest.wallCount} 块板。`
+          ? `正在继续搜索。当前最优解：${previousBest.completionStep} 步，${previousBest.wallCount} 块板。`
           : '正在逆向搜索并逐板删减，请稍候。'));
       try {
         const question = exportQuestion(model);
@@ -802,16 +973,16 @@
         if (generation !== solutionGeneration) return;
         solutions = mergeSolutions(solutions, found, 3);
         if (mode === 'improve' && found.length) {
-          const best = solutions[0];
+          const best = getBestKnownSolution();
           setSolutionMessage(`已找到更优解：${best.completionStep} 步，${best.wallCount} 块板，已替换原最优解。`, 'success');
         } else if (mode === 'improve') {
           setSolutionMessage(`没有找到更优解，继续保留：${previousBest.completionStep} 步，${previousBest.wallCount} 块板。`);
-        } else if (found.length && solutions.length) {
-          const best = solutions[0];
+        } else if (found.length && getBestKnownSolution()) {
+          const best = getBestKnownSolution();
           const improved = !previousBest || Solver.compareSolutions(best, previousBest) < 0;
           setSolutionMessage(`本轮生成 ${found.length} 个有效答案。${improved ? '已更新' : '继续保留'}最优解：${best.completionStep} 步，${best.wallCount} 块板。`, 'success');
-        } else if (solutions.length) {
-          const best = solutions[0];
+        } else if (getBestKnownSolution()) {
+          const best = getBestKnownSolution();
           setSolutionMessage(`本轮未找到新答案，继续保留最优解：${best.completionStep} 步，${best.wallCount} 块板。`);
         } else {
           setSolutionMessage('本次未找到有效答案。可以调整题面或再次生成。', 'error');
@@ -849,6 +1020,8 @@
     renameQuestion,
     extraWallCount,
     exportQuestion,
+    saveExcellentSolution,
+    removeExcellentSolution,
     previewSolution,
     mergeSolutions,
     eventsThroughStep,

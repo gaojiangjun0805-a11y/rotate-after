@@ -180,6 +180,7 @@ button.instruction-chip { cursor: pointer; }
 
 .target-order { display: flex; align-items: center; justify-content: center; gap: 11px; }
 .solution-list { display: grid; gap: 7px; margin-top: 10px; }
+.solution-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
 .solution-option {
   width: 100%;
   display: flex;
@@ -190,6 +191,25 @@ button.instruction-chip { cursor: pointer; }
 }
 .solution-option span { color: var(--muted); font-size: 13px; }
 .solution-option.active { border-color: var(--accent-strong); background: #183b38; }
+.solution-save-button { min-width: 94px; padding-inline: 10px; }
+.solution-save-button.saved { border-color: #d5ad55; color: #ffe3a1; background: #352b19; }
+.solution-library-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  color: var(--text);
+  font-size: 13px;
+}
+.solution-library-heading > span { color: var(--muted); }
+.saved-solution-list { margin-top: 7px; }
+.solution-list-empty {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
 .solution-verify-controls { margin-top: 10px; }
 .solution-metrics { margin: 10px 0; }
 .target-ball {

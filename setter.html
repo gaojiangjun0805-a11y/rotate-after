@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1118">
   <link rel="icon" href="data:,">
   <title>旋转之后 · 出题端</title>
-  <link rel="stylesheet" href="shared/common.css?v=4">
+  <link rel="stylesheet" href="shared/common.css?v=6">
 </head>
 <body data-app="setter">
   <div class="app-shell">
@@ -92,6 +92,11 @@
             <button id="returnQuestionBtn" disabled>返回题面</button>
           </div>
           <div class="solution-list" id="solutionList"></div>
+          <div class="solution-library-heading">
+            <strong>已保存优秀答案</strong>
+            <span><span id="savedSolutionCount">0</span> 个</span>
+          </div>
+          <div class="solution-list saved-solution-list" id="savedSolutionList"></div>
           <div class="control-row solution-verify-controls">
             <button id="stepVerifySolutionBtn" disabled>逐步验证</button>
             <button id="continuousVerifySolutionBtn" disabled>连续验证</button>
@@ -119,10 +124,10 @@
   </div>
 
   <script src="vendor/three.min.js"></script>
-  <script src="shared/question-format.js"></script>
+  <script src="shared/question-format.js?v=6"></script>
   <script src="shared/maze-core.js"></script>
   <script src="shared/solution-generator.js?v=5"></script>
   <script src="shared/board-ui.js?v=5"></script>
-  <script src="setter.js?v=5"></script>
+  <script src="setter.js?v=6"></script>
 </body>
 </html>
