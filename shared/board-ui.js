@@ -13,6 +13,7 @@
     B: 0x3f7edc,
     G: 0x2dbd68,
     P: 0x9650d8,
+    O: 0xf28a32,
   });
 
   function sameEdge(left, right) {

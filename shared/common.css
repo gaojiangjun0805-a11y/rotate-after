@@ -179,6 +179,17 @@ button.instruction-chip { cursor: pointer; }
 .instruction-chip.done { border-color: #557360; background: #1b2b26; }
 
 .target-order { display: flex; align-items: center; justify-content: center; gap: 11px; }
+.solution-list { display: grid; gap: 7px; margin-top: 10px; }
+.solution-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+.solution-option span { color: var(--muted); font-size: 13px; }
+.solution-option.active { border-color: var(--accent-strong); background: #183b38; }
 .target-ball {
   display: grid;
   place-items: center;
@@ -254,6 +265,8 @@ button.instruction-chip { cursor: pointer; }
   .metric-row { gap: 2px; }
   .metric { padding: 8px 6px; }
   .metric strong { font-size: 17px; }
+  .target-order { gap: 5px; }
+  .target-ball { width: 30px; height: 30px; font-size: 11px; }
   button { min-height: 42px; }
 }
 

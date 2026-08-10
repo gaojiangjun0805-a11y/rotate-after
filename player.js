@@ -12,13 +12,7 @@
 })(typeof globalThis === 'object' ? globalThis : this, function createPlayer(root, Format, Maze) {
   'use strict';
 
-  const BALL_META = Object.freeze({
-    R: { name: '红', color: '#ef4848' },
-    Y: { name: '黄', color: '#f1c82d' },
-    B: { name: '蓝', color: '#4382e8' },
-    G: { name: '绿', color: '#28c76f' },
-    P: { name: '紫', color: '#a358e6' },
-  });
+  const BALL_META = Format.BALL_META;
 
   function makeModel(question, questionWalls, walls) {
     const combined = Maze.cloneWalls(walls);
@@ -82,20 +76,6 @@
     let busy = false;
     let verificationGeneration = 0;
 
-    for (const id of Format.TARGET) {
-      const ball = root.document.createElement('span');
-      ball.className = 'target-ball';
-      ball.style.background = BALL_META[id].color;
-      ball.textContent = BALL_META[id].name;
-      targetOrder.appendChild(ball);
-      if (id !== Format.TARGET.at(-1)) {
-        const arrow = root.document.createElement('span');
-        arrow.className = 'target-arrow';
-        arrow.textContent = '→';
-        targetOrder.appendChild(arrow);
-      }
-    }
-
     function setGateMessage(message, error = false) {
       gateResult.textContent = message;
       gateResult.className = `result-box${error ? ' error' : ''}`;
@@ -119,10 +99,30 @@
     }
 
     function renderReleaseOrder() {
-      root.document.getElementById('releasedCount').textContent = `${record.length} / 5`;
+      root.document.getElementById('releasedCount').textContent = `${record.length} / ${model.question.ballCount}`;
       root.document.getElementById('releaseOrder').textContent = record.length
         ? `当前出球：${record.map(id => BALL_META[id]?.name || id).join(' → ')}`
         : '当前出球：无';
+    }
+
+    function renderTarget() {
+      targetOrder.innerHTML = '';
+      model.question.target.forEach((id, index) => {
+        const ball = root.document.createElement('span');
+        ball.className = 'target-ball';
+        ball.style.background = BALL_META[id].color;
+        ball.textContent = BALL_META[id].name;
+        targetOrder.appendChild(ball);
+        if (index < model.question.target.length - 1) {
+          const arrow = root.document.createElement('span');
+          arrow.className = 'target-arrow';
+          arrow.textContent = '→';
+          targetOrder.appendChild(arrow);
+        }
+      });
+      root.document.getElementById('targetHeading').textContent = model.question.target
+        .map(id => BALL_META[id].name)
+        .join(' → ');
     }
 
     function updateMetrics() {
@@ -195,7 +195,8 @@
         gate.hidden = true;
         workspace.hidden = false;
         root.document.getElementById('questionName').textContent = model.question.name;
-        root.document.getElementById('questionHeader').textContent = `${model.question.name} · ${model.question.instructions.length} 步`;
+        root.document.getElementById('questionHeader').textContent = `${model.question.name} · ${model.question.ballCount} 颗球 · ${model.question.instructions.length} 步`;
+        renderTarget();
         initializeBoard();
         setResult('题目已读取，可以开始摆板。', 'success');
       } catch (error) {

@@ -15,7 +15,7 @@
         <h1>旋转之后</h1>
         <span class="mode-badge">出题端</span>
       </div>
-      <div class="header-status" id="headerStatus">10×10 · 固定出口 · 红黄蓝绿紫</div>
+      <div class="header-status" id="headerStatus">10×10 · 固定出口 · 5 颗球</div>
     </header>
 
     <main class="workspace">
@@ -39,6 +39,13 @@
             <span>题目名称</span>
             <input id="questionNameInput" maxlength="40" value="未命名题目" autocomplete="off">
           </label>
+          <div class="control-row">
+            <label class="field">
+              <span>球的数量</span>
+              <select id="ballCountSelect" aria-label="球的数量"></select>
+            </label>
+            <span class="section-copy">固定按红、黄、蓝、绿、紫、橙的顺序取前 N 颗</span>
+          </div>
           <div class="control-row">
             <button id="randomBallsBtn">随机球位</button>
             <button id="randomInstructionsBtn">随机旋转</button>
@@ -76,6 +83,17 @@
         </section>
 
         <section class="tool-section">
+          <p class="section-kicker">SOLUTION</p>
+          <h2>生成答案</h2>
+          <div class="control-row">
+            <button class="primary" id="generateSolutionsBtn">生成 3 个答案</button>
+            <button id="returnQuestionBtn" disabled>返回题面</button>
+          </div>
+          <div class="solution-list" id="solutionList"></div>
+          <div class="result-box" id="solutionResult" role="status">尚未生成答案。</div>
+        </section>
+
+        <section class="tool-section">
           <p class="section-kicker">QUESTION FILE</p>
           <h2>题目文件</h2>
           <div class="control-row">
@@ -91,6 +109,7 @@
   <script src="vendor/three.min.js"></script>
   <script src="shared/question-format.js"></script>
   <script src="shared/maze-core.js"></script>
+  <script src="shared/solution-generator.js"></script>
   <script src="shared/board-ui.js"></script>
   <script src="setter.js"></script>
 </body>
