@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1118">
+  <link rel="icon" href="data:,">
+  <title>旋转之后 · 出题端</title>
+  <link rel="stylesheet" href="shared/common.css">
+</head>
+<body data-app="setter">
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <h1>旋转之后</h1>
+        <span class="mode-badge">出题端</span>
+      </div>
+      <div class="header-status" id="headerStatus">10×10 · 固定出口 · 红黄蓝绿紫</div>
+    </header>
+
+    <main class="workspace">
+      <section class="board-column" aria-label="题面棋盘">
+        <div class="board-frame">
+          <div id="mazeBoard" class="maze-stage"></div>
+          <div class="board-caption">
+            <div class="legend">
+              <span class="legend-item"><i class="legend-swatch fixed"></i>题面固定板</span>
+            </div>
+            <strong>额外初始板：<span id="initialWallCount">0</span> 块</strong>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-column" aria-label="出题控制台">
+        <section class="tool-section">
+          <p class="section-kicker">QUESTION</p>
+          <h2>题目设置</h2>
+          <label class="field grow">
+            <span>题目名称</span>
+            <input id="questionNameInput" maxlength="40" value="未命名题目" autocomplete="off">
+          </label>
+          <div class="control-row">
+            <button id="randomBallsBtn">随机球位</button>
+            <button id="randomInstructionsBtn">随机旋转</button>
+            <button id="randomQuestionBtn">随机整题</button>
+          </div>
+        </section>
+
+        <section class="tool-section">
+          <p class="section-kicker">SEQUENCE</p>
+          <h2>旋转步骤</h2>
+          <div class="control-row">
+            <label class="field">
+              <span>旋转次数</span>
+              <select id="rotationCountSelect" aria-label="旋转次数"></select>
+            </label>
+            <span class="section-copy">↻ 顺时针 · ↺ 逆时针</span>
+          </div>
+          <div class="instruction-grid" id="instructionGrid"></div>
+        </section>
+
+        <section class="tool-section">
+          <p class="section-kicker">INITIAL BOARD</p>
+          <h2>初始板块</h2>
+          <div class="control-row">
+            <button id="clearInitialWallsBtn">清空额外初始板</button>
+            <button id="resetQuestionBtn">恢复默认题面</button>
+          </div>
+          <div class="result-box" id="setterResult" role="status">题面已就绪。</div>
+        </section>
+
+        <section class="tool-section">
+          <p class="section-kicker">TARGET</p>
+          <h2>固定出球顺序</h2>
+          <div class="target-order" id="targetOrder"></div>
+        </section>
+
+        <section class="tool-section">
+          <p class="section-kicker">QUESTION FILE</p>
+          <h2>题目文件</h2>
+          <div class="control-row">
+            <button class="primary" id="saveQuestionBtn">保存题目</button>
+            <button id="loadQuestionBtn">读取题目</button>
+            <input class="visually-hidden" id="questionFileInput" type="file" accept="application/json,.json">
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="vendor/three.min.js"></script>
+  <script src="shared/question-format.js"></script>
+  <script src="shared/maze-core.js"></script>
+  <script src="shared/board-ui.js"></script>
+  <script src="setter.js"></script>
+</body>
+</html>

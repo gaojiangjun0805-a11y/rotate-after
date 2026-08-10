@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1118">
+  <link rel="icon" href="data:,">
+  <title>旋转之后 · 答题端</title>
+  <link rel="stylesheet" href="shared/common.css">
+</head>
+<body data-app="player">
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <h1>旋转之后</h1>
+        <span class="mode-badge">答题端</span>
+      </div>
+      <div class="header-status" id="questionHeader">等待读取题目</div>
+    </header>
+
+    <section class="question-gate" id="questionGate">
+      <div class="gate-content">
+        <p class="section-kicker">QUESTION FILE</p>
+        <h2>读取比赛题目</h2>
+        <p>请选择由“旋转之后 · 出题端”保存的题目文件。</p>
+        <button class="primary" id="loadQuestionBtn">读取题目</button>
+        <div class="result-box" id="gateResult" role="status">尚未读取题目。</div>
+      </div>
+    </section>
+
+    <main class="workspace" id="playerWorkspace" hidden>
+      <section class="board-column" aria-label="答题棋盘">
+        <div class="board-frame">
+          <div id="mazeBoard" class="maze-stage"></div>
+          <div class="board-caption">
+            <div class="legend">
+              <span class="legend-item"><i class="legend-swatch fixed"></i>题面固定板</span>
+              <span class="legend-item"><i class="legend-swatch answer"></i>选手新增板</span>
+            </div>
+            <strong>新增板：<span id="answerWallCount">0</span> 块</strong>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-column" aria-label="答题控制台">
+        <section class="tool-section">
+          <p class="section-kicker">QUESTION</p>
+          <h2 id="questionName">未命名题目</h2>
+          <div class="control-row">
+            <button id="changeQuestionBtn">更换题目</button>
+            <button id="clearAnswerWallsBtn">清空新增板</button>
+            <button class="danger" id="resetAnswerBtn">重置答案</button>
+          </div>
+        </section>
+
+        <section class="tool-section">
+          <p class="section-kicker">SEQUENCE</p>
+          <h2>旋转步骤</h2>
+          <div class="instruction-grid" id="instructionGrid"></div>
+        </section>
+
+        <section class="tool-section">
+          <p class="section-kicker">VERIFY</p>
+          <h2>验证答案</h2>
+          <div class="control-row">
+            <button class="primary" id="stepVerifyBtn">逐步验证</button>
+            <button id="continuousVerifyBtn">连续验证</button>
+            <button id="returnEditBtn" disabled>返回摆板</button>
+          </div>
+          <div class="metric-row">
+            <div class="metric"><span>当前步骤</span><strong id="currentStepDisplay">0 / 0</strong></div>
+            <div class="metric"><span>新增板</span><strong id="metricWallCount">0</strong></div>
+            <div class="metric"><span>已出球</span><strong id="releasedCount">0 / 5</strong></div>
+          </div>
+          <div class="result-box" id="playerResult" role="status">可以开始摆板。</div>
+        </section>
+
+        <section class="tool-section">
+          <p class="section-kicker">TARGET</p>
+          <h2>红 → 黄 → 蓝 → 绿 → 紫</h2>
+          <div class="target-order" id="targetOrder"></div>
+          <div class="section-copy" id="releaseOrder">当前出球：无</div>
+        </section>
+      </aside>
+    </main>
+
+    <input class="visually-hidden" id="questionFileInput" type="file" accept="application/json,.json">
+  </div>
+
+  <script src="vendor/three.min.js"></script>
+  <script src="shared/question-format.js"></script>
+  <script src="shared/maze-core.js"></script>
+  <script src="shared/board-ui.js"></script>
+  <script src="player.js"></script>
+</body>
+</html>
