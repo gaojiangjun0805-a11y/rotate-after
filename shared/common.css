@@ -19,6 +19,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body { min-height: 100%; }
 
@@ -252,9 +253,20 @@ button.instruction-chip { cursor: pointer; }
   text-align: center;
 }
 .question-gate[hidden] { display: none; }
-.gate-content { max-width: 460px; padding: 36px 24px; }
+.gate-content { width: min(100%, 720px); padding: 36px 24px; }
 .gate-content h2 { margin: 0 0 10px; font-size: 26px; }
 .gate-content p { color: var(--muted); line-height: 1.65; }
+.question-list { display: grid; gap: 8px; margin: 18px 0; text-align: left; }
+button.question-option {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+}
+.question-option strong { font-size: 15px; }
+.question-option span { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.question-option.current { border-color: var(--accent-strong); background: #173532; }
 
 .visually-hidden {
   position: absolute !important;

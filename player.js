@@ -60,6 +60,10 @@
     const workspace = root.document.getElementById('playerWorkspace');
     const fileInput = root.document.getElementById('questionFileInput');
     const gateResult = root.document.getElementById('gateResult');
+    const gateTitle = root.document.getElementById('questionGateTitle');
+    const gateCopy = root.document.getElementById('questionGateCopy');
+    const questionList = root.document.getElementById('questionList');
+    const loadQuestionButton = root.document.getElementById('loadQuestionBtn');
     const playerResult = root.document.getElementById('playerResult');
     const instructionGrid = root.document.getElementById('instructionGrid');
     const targetOrder = root.document.getElementById('targetOrder');
@@ -67,6 +71,9 @@
     const continuousButton = root.document.getElementById('continuousVerifyBtn');
     const returnButton = root.document.getElementById('returnEditBtn');
     const clearButton = root.document.getElementById('clearAnswerWallsBtn');
+    const questionEntries = [];
+    let activeEntry = null;
+    let nextQuestionId = 1;
     let model = null;
     let board = null;
     let mode = 'gate';
@@ -84,6 +91,37 @@
     function setResult(message, kind = '') {
       playerResult.textContent = message;
       playerResult.className = `result-box${kind ? ` ${kind}` : ''}`;
+    }
+
+    function setActiveModel(nextModel) {
+      model = nextModel;
+      if (activeEntry) activeEntry.model = nextModel;
+    }
+
+    function renderQuestionLibrary() {
+      questionList.innerHTML = '';
+      gateTitle.textContent = questionEntries.length ? '选择比赛题目' : '读取比赛题目';
+      gateCopy.textContent = questionEntries.length
+        ? '每道题会分别保留自己的答题板，选择后继续作答。'
+        : '可一次选择多个由“旋转之后 · 出题端”保存的题目文件。';
+      loadQuestionButton.textContent = questionEntries.length ? '继续添加题目' : '读取题目';
+
+      questionEntries.forEach((entry, index) => {
+        const button = root.document.createElement('button');
+        button.type = 'button';
+        button.className = `question-option${entry === activeEntry ? ' current' : ''}`;
+        button.dataset.questionId = entry.id;
+
+        const name = root.document.createElement('strong');
+        name.textContent = `${String(index + 1).padStart(2, '0')} · ${entry.model.question.name}`;
+        const meta = root.document.createElement('span');
+        meta.textContent = `${entry.model.question.ballCount} 颗球 · ${entry.model.question.instructions.length} 步 · ${Format.exitLabel(entry.model.question.exit)} · 已放 ${entry.model.answerWallCount} 块板${entry === activeEntry ? ' · 当前题目' : ''}`;
+        const source = root.document.createElement('span');
+        source.textContent = entry.fileName;
+        button.append(name, meta, source);
+        button.addEventListener('click', () => selectQuestion(entry.id));
+        questionList.appendChild(button);
+      });
     }
 
     function renderInstructions(activeStep = 0) {
@@ -173,7 +211,7 @@
           onEdge(edge) {
             if (mode !== 'edit') return;
             try {
-              model = toggleAnswerWall(model, edge);
+              setActiveModel(toggleAnswerWall(model, edge));
               board.setState({ question: model.question, questionWalls: model.questionWalls, walls: model.walls, record: [], step: 0 });
               updateMetrics();
               setResult('答案板块已更新。');
@@ -186,41 +224,87 @@
       renderEditBoard();
     }
 
-    async function acceptFile(file) {
-      try {
-        verificationGeneration += 1;
-        busy = false;
-        session = null;
-        model = loadQuestion(JSON.parse(await file.text()));
-        gate.hidden = true;
-        workspace.hidden = false;
-        root.document.getElementById('questionName').textContent = model.question.name;
-        root.document.getElementById('questionHeader').textContent = `${model.question.name} · ${Format.exitLabel(model.question.exit)} · ${model.question.ballCount} 颗球 · ${model.question.instructions.length} 步`;
-        renderTarget();
-        initializeBoard();
-        setResult('题目已读取，可以开始摆板。', 'success');
-      } catch (error) {
-        gate.hidden = false;
-        workspace.hidden = true;
-        setGateMessage(error.message, true);
+    function showQuestionLibrary(message) {
+      verificationGeneration += 1;
+      busy = false;
+      session = null;
+      record = [];
+      stepCursor = 0;
+      mode = 'library';
+      board?.resetAnimation();
+      gate.hidden = false;
+      workspace.hidden = true;
+      renderQuestionLibrary();
+      setGateMessage(message || (questionEntries.length
+        ? `已读取 ${questionEntries.length} 道题，请选择题目。`
+        : '尚未读取题目。'));
+    }
+
+    function selectQuestion(id) {
+      const entry = questionEntries.find(item => item.id === id);
+      if (!entry) return false;
+      verificationGeneration += 1;
+      busy = false;
+      session = null;
+      activeEntry = entry;
+      model = entry.model;
+      gate.hidden = true;
+      workspace.hidden = false;
+      root.document.getElementById('questionName').textContent = model.question.name;
+      root.document.getElementById('questionHeader').textContent = `${model.question.name} · ${Format.exitLabel(model.question.exit)} · ${model.question.ballCount} 颗球 · ${model.question.instructions.length} 步`;
+      renderTarget();
+      initializeBoard();
+      setResult(model.answerWallCount
+        ? `已恢复这道题的答题状态，共 ${model.answerWallCount} 块新增板。`
+        : '题目已打开，可以开始摆板。', 'success');
+      return true;
+    }
+
+    async function acceptFiles(files) {
+      const added = [];
+      const rejected = [];
+      for (const file of Array.from(files || [])) {
+        try {
+          const entry = {
+            id: `question-${nextQuestionId++}`,
+            fileName: file.name,
+            model: loadQuestion(JSON.parse(await file.text())),
+          };
+          questionEntries.push(entry);
+          added.push(entry);
+        } catch (error) {
+          rejected.push(`${file.name}：${String(error.message).split('\n')[0]}`);
+        }
       }
+
+      const summary = added.length
+        ? `已读取 ${questionEntries.length} 道题${rejected.length ? `，${rejected.length} 个文件无效` : ''}，请选择题目。`
+        : (rejected.length ? `没有读取到有效题目：${rejected.join('；')}` : '没有选择题目文件。');
+      showQuestionLibrary(summary);
+      if (!added.length && rejected.length) setGateMessage(summary, true);
+      return { added, rejected };
+    }
+
+    async function acceptFile(file) {
+      const result = await acceptFiles(file ? [file] : []);
+      if (result.added.length === 1) selectQuestion(result.added[0].id);
+      return result;
     }
 
     function openFilePicker() {
       fileInput.click();
     }
 
-    root.document.getElementById('loadQuestionBtn').addEventListener('click', openFilePicker);
-    root.document.getElementById('changeQuestionBtn').addEventListener('click', openFilePicker);
+    loadQuestionButton.addEventListener('click', openFilePicker);
+    root.document.getElementById('changeQuestionBtn').addEventListener('click', () => showQuestionLibrary());
     fileInput.addEventListener('change', async () => {
-      const [file] = fileInput.files;
-      if (file) await acceptFile(file);
+      await acceptFiles(fileInput.files);
       fileInput.value = '';
     });
 
     clearButton.addEventListener('click', () => {
       if (!model || mode !== 'edit') return;
-      model = resetAnswer(model);
+      setActiveModel(resetAnswer(model));
       renderEditBoard();
       setResult('新增板已清空，题面固定板保持不变。');
     });
@@ -229,7 +313,7 @@
       if (!model) return;
       verificationGeneration += 1;
       busy = false;
-      model = resetAnswer(model);
+      setActiveModel(resetAnswer(model));
       renderEditBoard();
       setResult('答案已重置，新增板数为 0。');
     });
@@ -330,10 +414,15 @@
       showFinalResult();
     });
 
+    renderQuestionLibrary();
+
     return {
       get model() { return model; },
       get mode() { return mode; },
+      get questionCount() { return questionEntries.length; },
       acceptFile,
+      acceptFiles,
+      selectQuestion,
     };
   }
 
