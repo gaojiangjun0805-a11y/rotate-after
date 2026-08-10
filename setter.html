@@ -87,9 +87,20 @@
           <h2>生成答案</h2>
           <div class="control-row">
             <button class="primary" id="generateSolutionsBtn">生成 3 个答案</button>
+            <button id="deployBestSolutionBtn" disabled>部署最优解</button>
             <button id="returnQuestionBtn" disabled>返回题面</button>
           </div>
           <div class="solution-list" id="solutionList"></div>
+          <div class="control-row solution-verify-controls">
+            <button id="stepVerifySolutionBtn" disabled>逐步验证</button>
+            <button id="continuousVerifySolutionBtn" disabled>连续验证</button>
+            <button id="resetSolutionVerifyBtn" disabled>重置验证</button>
+          </div>
+          <div class="metric-row solution-metrics" aria-label="答案验证状态">
+            <div class="metric"><span>当前步骤</span><strong id="solutionStepDisplay">0 / 20</strong></div>
+            <div class="metric"><span>已出球</span><strong id="solutionReleasedCount">0 / 5</strong></div>
+            <div class="metric"><span>答案板数</span><strong id="solutionWallCount">0</strong></div>
+          </div>
           <div class="result-box" id="solutionResult" role="status">尚未生成答案。</div>
         </section>
 

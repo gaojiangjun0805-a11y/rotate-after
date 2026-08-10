@@ -190,6 +190,8 @@ button.instruction-chip { cursor: pointer; }
 }
 .solution-option span { color: var(--muted); font-size: 13px; }
 .solution-option.active { border-color: var(--accent-strong); background: #183b38; }
+.solution-verify-controls { margin-top: 10px; }
+.solution-metrics { margin: 10px 0; }
 .target-ball {
   display: grid;
   place-items: center;

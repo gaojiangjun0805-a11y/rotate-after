@@ -279,6 +279,38 @@
     };
   }
 
+  function mergeSolutions(current, incoming, limit = 3) {
+    const unique = new Map();
+    for (const solution of [...(current || []), ...(incoming || [])]) {
+      if (!solution || typeof solution.fingerprint !== 'string') continue;
+      const saved = unique.get(solution.fingerprint);
+      if (!saved || Solver.compareSolutions(solution, saved) < 0) {
+        unique.set(solution.fingerprint, solution);
+      }
+    }
+    return [...unique.values()]
+      .sort(Solver.compareSolutions)
+      .slice(0, Math.max(1, Number(limit) || 3));
+  }
+
+  function eventsThroughStep(events, step) {
+    if (!Number.isInteger(step)) return events.slice();
+    return events.filter(event => !Number.isInteger(event.step) || event.step <= step);
+  }
+
+  function createSolutionVerification(model, solution) {
+    const preview = previewSolution(model, solution);
+    return {
+      simulation: preview.simulation,
+      groups: Maze.groupEventsByStep(
+        preview.simulation.events,
+        model.question.instructions.length,
+      ),
+      wallCount: preview.wallCount,
+      walls: preview.walls,
+    };
+  }
+
   function boot() {
     const boardElement = root.document.getElementById('mazeBoard');
     if (!boardElement || !root.RotateAfterBoard) return null;
@@ -290,11 +322,24 @@
     let solving = false;
     let solutionGeneration = 0;
     let solveController = null;
+    let verificationSession = null;
+    let verificationStep = 0;
+    let verificationRecord = [];
+    let verificationMode = 'idle';
+    let verificationBusy = false;
+    let verificationGeneration = 0;
     const result = root.document.getElementById('setterResult');
     const solutionResult = root.document.getElementById('solutionResult');
     const solutionList = root.document.getElementById('solutionList');
     const generateButton = root.document.getElementById('generateSolutionsBtn');
+    const deployBestButton = root.document.getElementById('deployBestSolutionBtn');
     const returnQuestionButton = root.document.getElementById('returnQuestionBtn');
+    const stepVerifyButton = root.document.getElementById('stepVerifySolutionBtn');
+    const continuousVerifyButton = root.document.getElementById('continuousVerifySolutionBtn');
+    const resetVerifyButton = root.document.getElementById('resetSolutionVerifyBtn');
+    const solutionStepDisplay = root.document.getElementById('solutionStepDisplay');
+    const solutionReleasedCount = root.document.getElementById('solutionReleasedCount');
+    const solutionWallCount = root.document.getElementById('solutionWallCount');
     const nameInput = root.document.getElementById('questionNameInput');
     const countSelect = root.document.getElementById('rotationCountSelect');
     const ballCountSelect = root.document.getElementById('ballCountSelect');
@@ -326,22 +371,64 @@
       solutionResult.className = `result-box${kind ? ` ${kind}` : ''}`;
     }
 
+    function getActiveSolution() {
+      return solutions[activeSolutionIndex] || null;
+    }
+
+    function renderVerificationControls() {
+      const active = getActiveSolution();
+      const canVerify = Boolean(active) && !solving;
+      deployBestButton.disabled = !solutions.length || solving || verificationBusy;
+      returnQuestionButton.disabled = !active;
+      stepVerifyButton.disabled = !canVerify
+        || verificationBusy
+        || verificationMode === 'continuous'
+        || verificationMode === 'done';
+      continuousVerifyButton.disabled = !canVerify
+        || verificationBusy
+        || verificationMode !== 'ready';
+      resetVerifyButton.disabled = !canVerify;
+      stepVerifyButton.textContent = verificationMode === 'step' ? '下一步' : '逐步验证';
+      solutionStepDisplay.textContent = `${verificationStep} / ${model.question.instructions.length}`;
+      solutionReleasedCount.textContent = `${verificationRecord.length} / ${model.question.ballCount}`;
+      solutionWallCount.textContent = String(active?.wallCount || 0);
+    }
+
+    function resetVerification(mode = activeSolutionIndex >= 0 ? 'ready' : 'idle') {
+      verificationGeneration += 1;
+      verificationSession = null;
+      verificationStep = 0;
+      verificationRecord = [];
+      verificationMode = mode;
+      verificationBusy = false;
+      board?.resetAnimation();
+      renderVerificationControls();
+    }
+
+    function deploySolution(index) {
+      if (solving || !solutions[index]) return;
+      activeSolutionIndex = index;
+      resetVerification('ready');
+      render();
+      const solution = solutions[index];
+      const label = index === 0 ? '最优解' : `答案 ${index + 1}`;
+      setSolutionMessage(`${label}已部署：${solution.completionStep} 步，${solution.wallCount} 块板。可以逐步或连续验证。`, 'success');
+    }
+
     function renderSolutionList() {
       solutionList.innerHTML = '';
       solutions.forEach((solution, index) => {
         const button = root.document.createElement('button');
         button.type = 'button';
         button.className = `solution-option${index === activeSolutionIndex ? ' active' : ''}`;
-        const label = index === 0 ? '★ 最优答案' : `答案 ${index + 1}`;
+        const label = index === 0 ? '★ 已保存最优解' : `答案 ${index + 1}`;
         button.innerHTML = `<strong>${label}</strong><span>${solution.completionStep} 步 · ${solution.wallCount} 块板</span>`;
-        button.addEventListener('click', () => {
-          activeSolutionIndex = index;
-          render();
-          setSolutionMessage(`正在预览${label}：${solution.completionStep} 步，${solution.wallCount} 块板。`, 'success');
-        });
+        button.title = `${label}，点击部署到当前题目`;
+        button.disabled = solving || verificationBusy;
+        button.addEventListener('click', () => deploySolution(index));
         solutionList.appendChild(button);
       });
-      returnQuestionButton.disabled = activeSolutionIndex < 0;
+      renderVerificationControls();
     }
 
     function invalidateSolutions(message = '题面已改变，请重新生成答案。') {
@@ -351,6 +438,7 @@
       solving = false;
       solutions = [];
       activeSolutionIndex = -1;
+      resetVerification('idle');
       generateButton.disabled = false;
       generateButton.textContent = '生成 3 个答案';
       renderSolutionList();
@@ -362,9 +450,11 @@
       model.question.instructions.forEach((direction, index) => {
         const button = root.document.createElement('button');
         button.type = 'button';
-        button.className = `instruction-chip ${direction === 1 ? 'cw' : 'ccw'}`;
+        const step = index + 1;
+        button.className = `instruction-chip ${direction === 1 ? 'cw' : 'ccw'}${step < verificationStep ? ' done' : ''}${step === verificationStep && verificationStep > 0 ? ' active' : ''}`;
         button.title = direction === 1 ? '顺时针' : '逆时针';
         button.innerHTML = `<span class="step-no">${String(index + 1).padStart(2, '0')}</span><span class="turn-icon">${direction === 1 ? '↻' : '↺'}</span>`;
+        button.disabled = solving || Boolean(getActiveSolution()) || verificationBusy;
         button.addEventListener('click', () => {
           model = toggleInstruction(model, index);
           invalidateSolutions();
@@ -401,7 +491,7 @@
       renderInstructions();
       renderTarget();
       renderSolutionList();
-      const activeSolution = solutions[activeSolutionIndex];
+      const activeSolution = getActiveSolution();
       const preview = activeSolution ? previewSolution(model, activeSolution) : null;
       board.setState({
         question: model.question,
@@ -414,6 +504,7 @@
         wallEditing: !activeSolution && !solving,
         ballDragging: !activeSolution && !solving,
       });
+      renderVerificationControls();
     }
 
     board = root.RotateAfterBoard.create({
@@ -529,11 +620,116 @@
       }
     });
 
+    function startVerificationSession() {
+      const active = getActiveSolution();
+      if (!active) return false;
+      verificationSession = createSolutionVerification(model, active);
+      verificationStep = 0;
+      verificationRecord = [];
+      board.resetAnimation();
+      renderInstructions();
+      renderVerificationControls();
+      return true;
+    }
+
+    function verificationPlaybackOptions(generation) {
+      return {
+        reset: false,
+        onStep(step) {
+          if (generation !== verificationGeneration) return;
+          verificationStep = step;
+          renderInstructions();
+          renderVerificationControls();
+        },
+        onRecord(record) {
+          if (generation !== verificationGeneration) return;
+          verificationRecord = record;
+          renderVerificationControls();
+        },
+      };
+    }
+
+    function showVerificationResult() {
+      if (!verificationSession) return;
+      verificationBusy = false;
+      verificationMode = 'done';
+      const score = verificationSession.simulation.score;
+      if (score.completed) {
+        setSolutionMessage(`验证通过：按顺序完成于第 ${score.completionStep} 步，使用 ${verificationSession.wallCount} 块板。`, 'success');
+      } else {
+        const actual = verificationSession.simulation.record.length
+          ? verificationSession.simulation.record.map(id => BALL_META[id]?.name || id).join(' → ')
+          : '没有球出盘';
+        setSolutionMessage(`验证未通过：${actual}。`, 'error');
+      }
+      renderInstructions();
+      renderVerificationControls();
+    }
+
+    deployBestButton.addEventListener('click', () => deploySolution(0));
+
+    stepVerifyButton.addEventListener('click', async () => {
+      if (!getActiveSolution() || verificationBusy
+        || verificationMode === 'continuous' || verificationMode === 'done') return;
+      if (verificationMode === 'ready') {
+        verificationGeneration += 1;
+        if (!startVerificationSession()) return;
+        verificationMode = 'step';
+      }
+      const generation = verificationGeneration;
+      const nextStep = verificationStep + 1;
+      if (nextStep > model.question.instructions.length) {
+        showVerificationResult();
+        return;
+      }
+      verificationBusy = true;
+      renderVerificationControls();
+      setSolutionMessage(`正在验证第 ${nextStep} 步。`);
+      const events = nextStep === 1
+        ? [...verificationSession.groups[0], ...verificationSession.groups[1]]
+        : verificationSession.groups[nextStep];
+      const played = await board.playEvents(events, verificationPlaybackOptions(generation));
+      if (generation !== verificationGeneration || played.cancelled) return;
+      verificationStep = nextStep;
+      verificationBusy = false;
+      renderInstructions();
+      renderVerificationControls();
+      const completionStep = verificationSession.simulation.score.completionStep;
+      if (completionStep === verificationStep
+        || verificationStep === model.question.instructions.length) showVerificationResult();
+      else setSolutionMessage(`第 ${verificationStep} 步完成，可以继续下一步。`);
+    });
+
+    continuousVerifyButton.addEventListener('click', async () => {
+      if (!getActiveSolution() || verificationBusy || verificationMode !== 'ready') return;
+      verificationGeneration += 1;
+      const generation = verificationGeneration;
+      if (!startVerificationSession()) return;
+      verificationMode = 'continuous';
+      verificationBusy = true;
+      renderVerificationControls();
+      setSolutionMessage('正在连续验证已部署的最优解。');
+      const completionStep = verificationSession.simulation.score.completionStep;
+      const events = eventsThroughStep(verificationSession.simulation.events, completionStep);
+      const played = await board.playEvents(events, verificationPlaybackOptions(generation));
+      if (generation !== verificationGeneration || played.cancelled) return;
+      verificationStep = completionStep || model.question.instructions.length;
+      verificationRecord = verificationSession.simulation.record.slice();
+      showVerificationResult();
+    });
+
+    resetVerifyButton.addEventListener('click', () => {
+      if (!getActiveSolution()) return;
+      resetVerification('ready');
+      render();
+      setSolutionMessage('验证已重置，最优解板块保持部署状态。');
+    });
+
     returnQuestionButton.addEventListener('click', () => {
       activeSolutionIndex = -1;
-      board.resetAnimation();
+      resetVerification('idle');
       render();
-      setSolutionMessage(solutions.length ? '已返回题面，可选择其他答案继续预览。' : '尚未生成答案。');
+      setSolutionMessage(solutions.length ? '已返回题面，已保存最优解仍然保留。' : '尚未生成答案。');
     });
 
     generateButton.addEventListener('click', async () => {
@@ -542,7 +738,7 @@
         if (solveController) solveController.abort();
         solveController = null;
         solving = false;
-        generateButton.textContent = '生成 3 个答案';
+        generateButton.textContent = solutions.length ? '继续生成 3 个答案' : '生成 3 个答案';
         render();
         setSolutionMessage('已停止生成。');
         return;
@@ -553,13 +749,16 @@
       }
       const generation = ++solutionGeneration;
       const controller = typeof root.AbortController === 'function' ? new root.AbortController() : null;
+      const previousBest = solutions[0] || null;
       solveController = controller;
       solving = true;
-      solutions = [];
       activeSolutionIndex = -1;
+      resetVerification('idle');
       generateButton.textContent = '停止生成';
       render();
-      setSolutionMessage('正在逆向搜索并逐板删减，请稍候。');
+      setSolutionMessage(previousBest
+        ? `正在继续搜索。当前已保存最优解：${previousBest.completionStep} 步，${previousBest.wallCount} 块板。`
+        : '正在逆向搜索并逐板删减，请稍候。');
       try {
         const question = exportQuestion(model);
         const found = await Solver.generateSolutions(question, {
@@ -573,11 +772,14 @@
           },
         });
         if (generation !== solutionGeneration) return;
-        solutions = found;
-        activeSolutionIndex = solutions.length ? 0 : -1;
-        if (solutions.length) {
+        solutions = mergeSolutions(solutions, found, 3);
+        if (found.length && solutions.length) {
           const best = solutions[0];
-          setSolutionMessage(`已生成 ${solutions.length} 个有效答案。最优：${best.completionStep} 步，${best.wallCount} 块板。`, 'success');
+          const improved = !previousBest || Solver.compareSolutions(best, previousBest) < 0;
+          setSolutionMessage(`本轮生成 ${found.length} 个有效答案。${improved ? '已更新' : '继续保留'}最优解：${best.completionStep} 步，${best.wallCount} 块板。`, 'success');
+        } else if (solutions.length) {
+          const best = solutions[0];
+          setSolutionMessage(`本轮未找到新答案，继续保留最优解：${best.completionStep} 步，${best.wallCount} 块板。`);
         } else {
           setSolutionMessage('本次未找到有效答案。可以调整题面或再次生成。', 'error');
         }
@@ -587,7 +789,7 @@
         if (generation === solutionGeneration) {
           if (solveController === controller) solveController = null;
           solving = false;
-          generateButton.textContent = '再生成 3 个答案';
+          generateButton.textContent = solutions.length ? '继续生成 3 个答案' : '生成 3 个答案';
           render();
         }
       }
@@ -612,6 +814,9 @@
     extraWallCount,
     exportQuestion,
     previewSolution,
+    mergeSolutions,
+    eventsThroughStep,
+    createSolutionVerification,
     boot,
   });
 });
