@@ -25,7 +25,7 @@
     };
   }
 
-  function emptyWalls(size = QuestionFormat.SIZE, exitCol = QuestionFormat.EXIT_COL) {
+  function emptyWalls(size = QuestionFormat.SIZE, exit = QuestionFormat.DEFAULT_EXIT) {
     const hw = Array.from({ length: size + 1 }, () => Array(size).fill(false));
     const vw = Array.from({ length: size }, () => Array(size + 1).fill(false));
     for (let c = 0; c < size; c += 1) {
@@ -36,8 +36,11 @@
       vw[r][0] = true;
       vw[r][size] = true;
     }
-    hw[size][exitCol] = false;
-    return { hw, vw };
+    const walls = { hw, vw };
+    const resolvedExit = Number.isInteger(exit) ? { side: 'bottom', index: exit } : exit;
+    const edge = QuestionFormat.exitEdge(resolvedExit, size);
+    if (edge) setWall(walls, edge, false);
+    return walls;
   }
 
   function supportEdges(balls) {
@@ -60,7 +63,8 @@
       walls.vw[r][0] = true;
       walls.vw[r][size] = true;
     }
-    walls.hw[size][question.exitCol] = false;
+    const exitEdge = QuestionFormat.exitEdge(question.exit, size);
+    if (exitEdge) setWall(walls, exitEdge, false);
     return addSupports(walls, question.balls);
   }
 
@@ -159,15 +163,18 @@
     const occupied = occupiedCells(balls);
     const exits = [];
     let moved = false;
+    const exitCell = QuestionFormat.exitCell(question.exit, question.size);
+    const exitEdge = QuestionFormat.exitEdge(question.exit, question.size);
+    const exitGravity = QuestionFormat.exitGravity(question.exit);
 
     for (const index of indices) {
       const ball = balls[index];
       if (!ball.alive) continue;
 
-      if (gravity === SOUTH
-        && ball.r === question.size - 1
-        && ball.c === question.exitCol
-        && !walls.hw[question.size][question.exitCol]) {
+      if (gravity === exitGravity
+        && ball.r === exitCell.r
+        && ball.c === exitCell.c
+        && !wallAt(walls, exitEdge)) {
         ball.alive = false;
         occupied.delete(`${ball.r},${ball.c}`);
         record.push(ball.id);

@@ -91,6 +91,45 @@
     return Math.min(1, 5.9 / rotatedExtent);
   }
 
+  function exitLayout(question) {
+    const size = Number(question?.size || 10);
+    const exit = question?.exit || { side: 'bottom', index: Number(question?.exitCol ?? 5) };
+    const index = Number(exit.index);
+    const horizontal = exit.side === 'top' || exit.side === 'bottom';
+    const cellX = index + 0.5 - size / 2;
+    const cellY = size / 2 - index - 0.5;
+    const edge = 5.43;
+    const outside = 6.05;
+
+    if (horizontal) {
+      const y = exit.side === 'top' ? edge : -edge;
+      return {
+        side: exit.side,
+        index,
+        orientation: 'horizontal',
+        main: { width: 1.05, height: 0.55, x: cellX, y },
+        caps: [
+          { width: 0.12, height: 0.55, x: cellX - 0.56, y },
+          { width: 0.12, height: 0.55, x: cellX + 0.56, y },
+        ],
+        target: { x: cellX, y: exit.side === 'top' ? outside : -outside },
+      };
+    }
+
+    const x = exit.side === 'right' ? edge : -edge;
+    return {
+      side: exit.side,
+      index,
+      orientation: 'vertical',
+      main: { width: 0.55, height: 1.05, x, y: cellY },
+      caps: [
+        { width: 0.55, height: 0.12, x, y: cellY - 0.56 },
+        { width: 0.55, height: 0.12, x, y: cellY + 0.56 },
+      ],
+      target: { x: exit.side === 'right' ? outside : -outside, y: cellY },
+    };
+  }
+
   function create(options = {}) {
     if (!root.document) throw new Error('RotateAfterBoard.create requires a browser document.');
     const host = typeof options.host === 'string'
@@ -289,10 +328,20 @@
         }
       }
 
-      const exitX = question.exitCol + 0.5 - question.size / 2;
-      addBox(boardGroup, 1.05, 0.55, 0.16, exitX, -5.43, -0.02, exitMaterial);
-      addBox(boardGroup, 0.12, 0.55, 0.32, exitX - 0.56, -5.42, 0.13, exitMaterial);
-      addBox(boardGroup, 0.12, 0.55, 0.32, exitX + 0.56, -5.42, 0.13, exitMaterial);
+      const exit = exitLayout(question);
+      addBox(
+        boardGroup,
+        exit.main.width,
+        exit.main.height,
+        0.16,
+        exit.main.x,
+        exit.main.y,
+        -0.02,
+        exitMaterial,
+      );
+      for (const cap of exit.caps) {
+        addBox(boardGroup, cap.width, cap.height, 0.32, cap.x, cap.y, 0.13, exitMaterial);
+      }
 
       for (const ball of question.balls) {
         const material = new root.THREE.MeshStandardMaterial({
@@ -344,6 +393,13 @@
       for (let r = 0; r < question.size; r += 1) for (let c = 0; c <= question.size; c += 1) {
         if (walls.vw[r][c]) line('v', r, c, questionWalls.vw[r][c]);
       }
+      const exit = exitLayout(question);
+      context.fillStyle = '#45c795';
+      const marker = 12;
+      if (exit.side === 'top') context.fillRect(exit.index * cell, 0, cell, marker);
+      else if (exit.side === 'right') context.fillRect(size - marker, exit.index * cell, marker, cell);
+      else if (exit.side === 'bottom') context.fillRect(exit.index * cell, size - marker, cell, marker);
+      else context.fillRect(0, exit.index * cell, marker, cell);
       for (const ball of question.balls) {
         if (displayRecord.includes(ball.id)) continue;
         const mesh = ballMeshes.get(ball.id);
@@ -600,8 +656,7 @@
             const position = event.pos[ball.id];
             if (position) targets.set(ball.id, { ...localCellPosition(position[0], position[1]), exiting: false });
             else if (event.exits.includes(ball.id)) {
-              const exitPosition = localCellPosition(question.size - 1, question.exitCol);
-              targets.set(ball.id, { x: exitPosition.x, y: -6.05, exiting: true });
+              targets.set(ball.id, { ...exitLayout(question).target, exiting: true });
             }
           }
           const completed = await animate(moveDuration, progress => {
@@ -665,6 +720,7 @@
     pickEdge,
     clientToBoard,
     rotationFitScale,
+    exitLayout,
     compactPlaybackEvents,
     create,
   });

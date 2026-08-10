@@ -86,9 +86,10 @@
     while (prefix < state.question.target.length
       && simulation.record[prefix] === state.question.target[prefix]) prefix += 1;
     let proximity = 0;
+    const exitCell = Format.exitCell(state.question.exit, state.question.size);
     for (const ball of simulation.final) {
       if (!ball.alive) continue;
-      proximity += (state.question.size - 1 - ball.r) + Math.abs(ball.c - state.question.exitCol);
+      proximity += Math.abs(exitCell.r - ball.r) + Math.abs(exitCell.c - ball.c);
     }
     return {
       solved: isSolvedRecord(simulation.record, state.question.target),
@@ -224,9 +225,10 @@
     const allowed = new Set(editableEdges(question).map(edgeKey));
     const reverseGravity = gravityTimeline(question).slice().reverse();
     if (!reverseGravity.length) return walls;
+    const exitCell = Format.exitCell(question.exit, question.size);
     question.target.slice().reverse().forEach((id, rank) => {
-      let r = question.size - 1;
-      let c = question.exitCol;
+      let r = exitCell.r;
+      let c = exitCell.c;
       let placed = 0;
       const offset = (variant * 7 + rank * 3) % reverseGravity.length;
       for (let turn = 0; turn < reverseGravity.length && placed < 3; turn += 1) {

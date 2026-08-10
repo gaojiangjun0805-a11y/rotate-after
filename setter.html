@@ -15,7 +15,7 @@
         <h1>旋转之后</h1>
         <span class="mode-badge">出题端</span>
       </div>
-      <div class="header-status" id="headerStatus">10×10 · 固定出口 · 5 颗球</div>
+      <div class="header-status" id="headerStatus">10×10 · 下边第 6 格 · 5 颗球</div>
     </header>
 
     <main class="workspace">
@@ -45,6 +45,16 @@
               <select id="ballCountSelect" aria-label="球的数量"></select>
             </label>
             <span class="section-copy">固定按红、黄、蓝、绿、紫、橙的顺序取前 N 颗</span>
+          </div>
+          <div class="control-row">
+            <label class="field">
+              <span>出口边</span>
+              <select id="exitSideSelect" aria-label="出口边"></select>
+            </label>
+            <label class="field">
+              <span>出口位置</span>
+              <select id="exitIndexSelect" aria-label="出口位置"></select>
+            </label>
           </div>
           <div class="control-row">
             <button id="randomBallsBtn">随机球位</button>
@@ -124,10 +134,10 @@
   </div>
 
   <script src="vendor/three.min.js"></script>
-  <script src="shared/question-format.js?v=6"></script>
-  <script src="shared/maze-core.js"></script>
-  <script src="shared/solution-generator.js?v=5"></script>
-  <script src="shared/board-ui.js?v=5"></script>
-  <script src="setter.js?v=6"></script>
+  <script src="shared/question-format.js?v=7"></script>
+  <script src="shared/maze-core.js?v=7"></script>
+  <script src="shared/solution-generator.js?v=7"></script>
+  <script src="shared/board-ui.js?v=7"></script>
+  <script src="setter.js?v=7"></script>
 </body>
 </html>

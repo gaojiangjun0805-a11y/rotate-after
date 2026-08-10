@@ -98,8 +98,8 @@
     return [...unique.values()].sort(Solver.compareSolutions);
   }
 
-  function composeQuestionWalls(balls, extras) {
-    const walls = Maze.emptyWalls(Format.SIZE, Format.EXIT_COL);
+  function composeQuestionWalls(balls, extras, exit = Format.DEFAULT_EXIT) {
+    const walls = Maze.emptyWalls(Format.SIZE, exit);
     for (let r = 1; r < Format.SIZE; r += 1) {
       for (let c = 0; c < Format.SIZE; c += 1) walls.hw[r][c] = Boolean(extras.hw[r][c]);
     }
@@ -112,7 +112,7 @@
 
   function extractExtras(question) {
     const extras = blankExtras();
-    const base = Maze.emptyWalls(question.size, question.exitCol);
+    const base = Maze.emptyWalls(question.size, question.exit);
     Maze.addSupports(base, question.balls);
     for (let r = 1; r < question.size; r += 1) {
       for (let c = 0; c < question.size; c += 1) {
@@ -136,7 +136,7 @@
       version: Format.VERSION,
       name: question.name,
       size: Format.SIZE,
-      exitCol: Format.EXIT_COL,
+      exit: { side: question.exit.side, index: question.exit.index },
       ballCount,
       target,
       balls: copyBalls(question.balls),
@@ -144,7 +144,7 @@
       initialWalls: blankExtras(),
       extraInitialWalls: cloneExtras(copiedExtras),
     };
-    const questionWalls = composeQuestionWalls(copiedQuestion.balls, copiedExtras);
+    const questionWalls = composeQuestionWalls(copiedQuestion.balls, copiedExtras, copiedQuestion.exit);
     copiedQuestion.initialWalls = Maze.cloneWalls(questionWalls);
     return {
       question: copiedQuestion,
@@ -163,12 +163,12 @@
       version: Format.VERSION,
       name: Format.DEFAULT_NAME,
       size: Format.SIZE,
-      exitCol: Format.EXIT_COL,
+      exit: { ...Format.DEFAULT_EXIT },
       ballCount,
       target: Format.targetForCount(ballCount),
       balls,
       instructions: DEFAULT_INSTRUCTIONS.slice(),
-      initialWalls: composeQuestionWalls(balls, extras),
+      initialWalls: composeQuestionWalls(balls, extras, Format.DEFAULT_EXIT),
       extraInitialWalls: cloneExtras(extras),
     };
     return question;
@@ -193,7 +193,7 @@
   function moveBall(model, id, r, c) {
     if (!Number.isInteger(r) || !Number.isInteger(c)
       || r < 0 || r >= Format.SIZE || c < 0 || c >= Format.SIZE) throw new Error('球位超出棋盘。');
-    if (r === Format.SIZE - 1 && c === Format.EXIT_COL) throw new Error('球不能放在固定出口格。');
+    if (Format.isExitCell(model.question.exit, r, c)) throw new Error('球不能放在出口格。');
     if (model.question.balls.some(ball => ball.id !== id && ball.ir === r && ball.ic === c)) {
       throw new Error('该位置已有球。');
     }
@@ -220,11 +220,11 @@
     return makeModel(model.question, extras);
   }
 
-  function shuffledCells(rng) {
+  function shuffledCells(exit, rng) {
     const cells = [];
     for (let r = 0; r < Format.SIZE; r += 1) {
       for (let c = 0; c < Format.SIZE; c += 1) {
-        if (!(r === Format.SIZE - 1 && c === Format.EXIT_COL)) cells.push({ r, c });
+        if (!Format.isExitCell(exit, r, c)) cells.push({ r, c });
       }
     }
     for (let index = cells.length - 1; index > 0; index -= 1) {
@@ -236,7 +236,7 @@
   }
 
   function randomizeBalls(model, rng = Math.random) {
-    const cells = shuffledCells(rng);
+    const cells = shuffledCells(model.question.exit, rng);
     const balls = model.question.target.map((id, index) => ({ id, ir: cells[index].r, ic: cells[index].c }));
     return makeModel({ ...model.question, balls }, model.extraInitialWalls);
   }
@@ -253,7 +253,7 @@
 
     function available(position) {
       return position
-        && !(position.ir === Format.SIZE - 1 && position.ic === Format.EXIT_COL)
+        && !Format.isExitCell(model.question.exit, position.ir, position.ic)
         && !occupied.has(`${position.ir},${position.ic}`);
     }
 
@@ -275,6 +275,17 @@
       occupied.add(`${position.ir},${position.ic}`);
     }
     return makeModel({ ...model.question, ballCount: value, target, balls }, model.extraInitialWalls);
+  }
+
+  function setExit(model, side, index) {
+    const exit = { side, index: Number(index) };
+    if (!Format.validExit(exit)) throw new Error('出口必须位于四条边的第 1 至 10 格。');
+    if (model.question.exit.side === exit.side && model.question.exit.index === exit.index) return model;
+    const cell = Format.exitCell(exit);
+    if (model.question.balls.some(ball => ball.ir === cell.r && ball.ic === cell.c)) {
+      throw new Error('该出口格已有球，请先移动小球。');
+    }
+    return makeModel({ ...model.question, exit }, model.extraInitialWalls);
   }
 
   function randomizeInstructions(model, rng = Math.random) {
@@ -441,6 +452,8 @@
     const nameInput = root.document.getElementById('questionNameInput');
     const countSelect = root.document.getElementById('rotationCountSelect');
     const ballCountSelect = root.document.getElementById('ballCountSelect');
+    const exitSideSelect = root.document.getElementById('exitSideSelect');
+    const exitIndexSelect = root.document.getElementById('exitIndexSelect');
     const instructionGrid = root.document.getElementById('instructionGrid');
     const targetOrder = root.document.getElementById('targetOrder');
     const fileInput = root.document.getElementById('questionFileInput');
@@ -457,6 +470,20 @@
       option.value = String(count);
       option.textContent = `${count} 颗`;
       ballCountSelect.appendChild(option);
+    }
+
+    for (const side of Format.EXIT_SIDES) {
+      const option = root.document.createElement('option');
+      option.value = side;
+      option.textContent = Format.EXIT_SIDE_NAMES[side];
+      exitSideSelect.appendChild(option);
+    }
+
+    for (let index = 0; index < Format.SIZE; index += 1) {
+      const option = root.document.createElement('option');
+      option.value = String(index);
+      option.textContent = `第 ${index + 1} 格`;
+      exitIndexSelect.appendChild(option);
     }
 
     function setMessage(message, kind = '') {
@@ -668,7 +695,9 @@
       if (nameInput !== root.document.activeElement) nameInput.value = model.question.name;
       countSelect.value = String(model.question.instructions.length);
       ballCountSelect.value = String(model.question.ballCount);
-      root.document.getElementById('headerStatus').textContent = `10×10 · 固定出口 · ${model.question.ballCount} 颗球`;
+      exitSideSelect.value = model.question.exit.side;
+      exitIndexSelect.value = String(model.question.exit.index);
+      root.document.getElementById('headerStatus').textContent = `10×10 · ${Format.exitLabel(model.question.exit)} · ${model.question.ballCount} 颗球`;
       root.document.getElementById('initialWallCount').textContent = String(extraWallCount(model));
       renderInstructions();
       renderTarget();
@@ -737,6 +766,19 @@
       render();
       setMessage(`题目球数已设为 ${model.question.ballCount} 颗，承托板已同步。`);
     });
+    function applyExitSelection() {
+      try {
+        model = setExit(model, exitSideSelect.value, Number(exitIndexSelect.value));
+        invalidateSolutions();
+        render();
+        setMessage(`出口已设为${Format.exitLabel(model.question.exit)}。`);
+      } catch (error) {
+        render();
+        setMessage(error.message, 'error');
+      }
+    }
+    exitSideSelect.addEventListener('change', applyExitSelection);
+    exitIndexSelect.addEventListener('change', applyExitSelection);
     root.document.getElementById('randomBallsBtn').addEventListener('click', () => {
       model = randomizeBalls(model);
       invalidateSolutions();
@@ -1014,6 +1056,7 @@
     randomizeInstructions,
     randomizeQuestion,
     setBallCount,
+    setExit,
     setRotationCount,
     toggleInstruction,
     clearExtraWalls,

@@ -6,9 +6,12 @@
   'use strict';
 
   const APP_NAME = '旋转之后';
-  const VERSION = 3;
+  const VERSION = 4;
   const SIZE = 10;
   const EXIT_COL = 5;
+  const EXIT_SIDES = Object.freeze(['top', 'right', 'bottom', 'left']);
+  const EXIT_SIDE_NAMES = Object.freeze({ top: '上边', right: '右边', bottom: '下边', left: '左边' });
+  const DEFAULT_EXIT = Object.freeze({ side: 'bottom', index: EXIT_COL });
   const TARGET = Object.freeze(['R', 'Y', 'B', 'G', 'P']);
   const BALL_ORDER = Object.freeze(['R', 'Y', 'B', 'G', 'P', 'O']);
   const BALL_META = Object.freeze({
@@ -51,6 +54,55 @@
     };
   }
 
+  function normalizeExit(source) {
+    if (source?.exit && typeof source.exit === 'object') {
+      return { side: source.exit.side, index: source.exit.index };
+    }
+    if (Object.prototype.hasOwnProperty.call(source || {}, 'exitSide')
+      || Object.prototype.hasOwnProperty.call(source || {}, 'exitIndex')) {
+      return { side: source.exitSide, index: source.exitIndex };
+    }
+    return { side: 'bottom', index: source?.exitCol };
+  }
+
+  function validExit(exit, size = SIZE) {
+    return Boolean(exit
+      && EXIT_SIDES.includes(exit.side)
+      && Number.isInteger(exit.index)
+      && exit.index >= 0
+      && exit.index < size);
+  }
+
+  function exitCell(exit, size = SIZE) {
+    if (!validExit(exit, size)) return null;
+    if (exit.side === 'top') return { r: 0, c: exit.index };
+    if (exit.side === 'right') return { r: exit.index, c: size - 1 };
+    if (exit.side === 'bottom') return { r: size - 1, c: exit.index };
+    return { r: exit.index, c: 0 };
+  }
+
+  function exitEdge(exit, size = SIZE) {
+    if (!validExit(exit, size)) return null;
+    if (exit.side === 'top') return { type: 'h', r: 0, c: exit.index };
+    if (exit.side === 'right') return { type: 'v', r: exit.index, c: size };
+    if (exit.side === 'bottom') return { type: 'h', r: size, c: exit.index };
+    return { type: 'v', r: exit.index, c: 0 };
+  }
+
+  function exitGravity(exit) {
+    return EXIT_SIDES.indexOf(exit?.side);
+  }
+
+  function isExitCell(exit, r, c, size = SIZE) {
+    const cell = exitCell(exit, size);
+    return Boolean(cell && cell.r === r && cell.c === c);
+  }
+
+  function exitLabel(exit) {
+    if (!validExit(exit)) return '出口未设置';
+    return `${EXIT_SIDE_NAMES[exit.side]}第 ${exit.index + 1} 格`;
+  }
+
   function normalize(raw = {}) {
     const source = raw && typeof raw === 'object' ? raw : {};
     const sourceInstructions = Array.isArray(source.instructions)
@@ -63,7 +115,7 @@
       version: VERSION,
       name: String(source.name || DEFAULT_NAME).trim().slice(0, 40) || DEFAULT_NAME,
       size: source.size,
-      exitCol: source.exitCol,
+      exit: normalizeExit(source),
       ballCount: inferBallCount(source),
       target: Array.isArray(source.target) ? source.target.slice() : [],
       balls: Array.isArray(source.balls)
@@ -123,7 +175,10 @@
     }
 
     if (question.size !== SIZE) errors.push('棋盘必须为固定的 10×10。');
-    if (question.exitCol !== EXIT_COL) errors.push('出口必须固定在底边第 6 列。');
+    if (!EXIT_SIDES.includes(question.exit.side)) errors.push('出口方向必须为上、右、下、左四边之一。');
+    if (!Number.isInteger(question.exit.index)
+      || question.exit.index < 0
+      || question.exit.index >= SIZE) errors.push('出口位置必须为所选边的第 1 至 10 格。');
     const validBallCount = Number.isInteger(question.ballCount)
       && question.ballCount >= MIN_BALL_COUNT
       && question.ballCount <= MAX_BALL_COUNT;
@@ -156,7 +211,7 @@
         hasOutOfRange = true;
         continue;
       }
-      if (ball.ir === SIZE - 1 && ball.ic === EXIT_COL) hasExitBall = true;
+      if (validExit(question.exit) && isExitCell(question.exit, ball.ir, ball.ic)) hasExitBall = true;
       const cell = `${ball.ir},${ball.ic}`;
       if (cells.has(cell)) hasOverlap = true;
       cells.add(cell);
@@ -210,6 +265,9 @@
     VERSION,
     SIZE,
     EXIT_COL,
+    EXIT_SIDES,
+    EXIT_SIDE_NAMES,
+    DEFAULT_EXIT,
     TARGET,
     BALL_ORDER,
     BALL_META,
@@ -218,6 +276,13 @@
     DEFAULT_NAME,
     targetForCount,
     copyWalls,
+    normalizeExit,
+    validExit,
+    exitCell,
+    exitEdge,
+    exitGravity,
+    isExitCell,
+    exitLabel,
     normalize,
     validate,
     serialize,

@@ -195,7 +195,7 @@
         gate.hidden = true;
         workspace.hidden = false;
         root.document.getElementById('questionName').textContent = model.question.name;
-        root.document.getElementById('questionHeader').textContent = `${model.question.name} · ${model.question.ballCount} 颗球 · ${model.question.instructions.length} 步`;
+        root.document.getElementById('questionHeader').textContent = `${model.question.name} · ${Format.exitLabel(model.question.exit)} · ${model.question.ballCount} 颗球 · ${model.question.instructions.length} 步`;
         renderTarget();
         initializeBoard();
         setResult('题目已读取，可以开始摆板。', 'success');
