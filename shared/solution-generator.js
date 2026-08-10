@@ -196,6 +196,14 @@
       || String(left.fingerprint || '').localeCompare(String(right.fingerprint || ''));
   }
 
+  function isStrictlyBetter(left, right) {
+    if (!right) return true;
+    const leftStep = Number.isInteger(left?.completionStep) ? left.completionStep : Infinity;
+    const rightStep = Number.isInteger(right?.completionStep) ? right.completionStep : Infinity;
+    if (leftStep !== rightStep) return leftStep < rightStep;
+    return Number(left?.wallCount ?? Infinity) < Number(right?.wallCount ?? Infinity);
+  }
+
   function gravityTimeline(question) {
     let gravity = Maze.SOUTH;
     return question.instructions.map(direction => {
@@ -295,6 +303,7 @@
     const yieldControl = options.yieldControl || (() => new Promise(resolve => setTimeout(resolve, 0)));
     const onProgress = typeof options.onProgress === 'function' ? options.onProgress : () => {};
     const shouldCancel = typeof options.shouldCancel === 'function' ? options.shouldCancel : () => false;
+    const betterThan = options.betterThan || null;
     const signal = options.signal;
     const isCancelled = () => Boolean(signal?.aborted) || shouldCancel();
     const solutions = [];
@@ -314,7 +323,9 @@
         yieldControl,
       });
       if (!solution || isCancelled()) return false;
-      if (!solution.solved || fingerprints.has(solution.fingerprint)) return false;
+      if (!solution.solved
+        || !isStrictlyBetter(solution, betterThan)
+        || fingerprints.has(solution.fingerprint)) return false;
       fingerprints.add(solution.fingerprint);
       solutions.push(solution);
       solutions.sort(compareSolutions);
@@ -401,6 +412,7 @@
     evaluate,
     pruneSolution,
     compareSolutions,
+    isStrictlyBetter,
     reverseSeedWalls,
     generateSolutions,
   });

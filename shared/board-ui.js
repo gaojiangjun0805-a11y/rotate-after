@@ -57,6 +57,34 @@
     return value < 0.5 ? 4 * value * value * value : 1 - ((-2 * value + 2) ** 3) / 2;
   }
 
+  function compactPlaybackEvents(events) {
+    const compacted = [];
+    for (let index = 0; index < (events || []).length;) {
+      const event = events[index];
+      if (event?.t !== 'set') {
+        compacted.push(event);
+        index += 1;
+        continue;
+      }
+
+      const exits = [];
+      const exited = new Set();
+      let finalEvent = event;
+      while (index < events.length && events[index]?.t === 'set') {
+        finalEvent = events[index];
+        for (const id of finalEvent.exits || []) {
+          if (!exited.has(id)) {
+            exited.add(id);
+            exits.push(id);
+          }
+        }
+        index += 1;
+      }
+      compacted.push({ ...finalEvent, exits });
+    }
+    return compacted;
+  }
+
   function rotationFitScale(degrees) {
     const radians = Number(degrees || 0) * Math.PI / 180;
     const rotatedExtent = 5.8 * (Math.abs(Math.cos(radians)) + Math.abs(Math.sin(radians)));
@@ -543,9 +571,10 @@
       hoverEdge = null;
       drawOverlay();
       const rotationDuration = options.rotationDuration ?? 430;
-      const moveDuration = options.moveDuration ?? 135;
+      const moveDuration = options.moveDuration ?? 360;
+      const playbackEvents = compactPlaybackEvents(events);
 
-      for (const event of events) {
+      for (const event of playbackEvents) {
         if (token !== playToken) return { cancelled: true, record: displayRecord.slice(), step: currentStep };
         if (event.t === 'rot') {
           const from = currentTheta;
@@ -570,7 +599,10 @@
             starts.set(ball.id, { x: mesh.position.x, y: mesh.position.y, opacity: mesh.material.opacity });
             const position = event.pos[ball.id];
             if (position) targets.set(ball.id, { ...localCellPosition(position[0], position[1]), exiting: false });
-            else if (event.exits.includes(ball.id)) targets.set(ball.id, { x: mesh.position.x, y: -6.05, exiting: true });
+            else if (event.exits.includes(ball.id)) {
+              const exitPosition = localCellPosition(question.size - 1, question.exitCol);
+              targets.set(ball.id, { x: exitPosition.x, y: -6.05, exiting: true });
+            }
           }
           const completed = await animate(moveDuration, progress => {
             for (const [id, target] of targets) {
@@ -633,6 +665,7 @@
     pickEdge,
     clientToBoard,
     rotationFitScale,
+    compactPlaybackEvents,
     create,
   });
 });

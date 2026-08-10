@@ -320,6 +320,7 @@
     let solutions = [];
     let activeSolutionIndex = -1;
     let solving = false;
+    let solutionSearchMode = 'idle';
     let solutionGeneration = 0;
     let solveController = null;
     let verificationSession = null;
@@ -332,6 +333,7 @@
     const solutionResult = root.document.getElementById('solutionResult');
     const solutionList = root.document.getElementById('solutionList');
     const generateButton = root.document.getElementById('generateSolutionsBtn');
+    const improveBestButton = root.document.getElementById('improveBestSolutionBtn');
     const deployBestButton = root.document.getElementById('deployBestSolutionBtn');
     const returnQuestionButton = root.document.getElementById('returnQuestionBtn');
     const stepVerifyButton = root.document.getElementById('stepVerifySolutionBtn');
@@ -375,6 +377,17 @@
       return solutions[activeSolutionIndex] || null;
     }
 
+    function renderSearchControls() {
+      const generating = solving && solutionSearchMode === 'generate';
+      const improving = solving && solutionSearchMode === 'improve';
+      generateButton.disabled = solving && !generating;
+      generateButton.textContent = generating
+        ? '停止生成'
+        : (solutions.length ? '继续生成 3 个答案' : '生成 3 个答案');
+      improveBestButton.disabled = (!solutions.length && !improving) || (solving && !improving);
+      improveBestButton.textContent = improving ? '停止寻找' : '寻找更优解';
+    }
+
     function renderVerificationControls() {
       const active = getActiveSolution();
       const canVerify = Boolean(active) && !solving;
@@ -392,6 +405,7 @@
       solutionStepDisplay.textContent = `${verificationStep} / ${model.question.instructions.length}`;
       solutionReleasedCount.textContent = `${verificationRecord.length} / ${model.question.ballCount}`;
       solutionWallCount.textContent = String(active?.wallCount || 0);
+      renderSearchControls();
     }
 
     function resetVerification(mode = activeSolutionIndex >= 0 ? 'ready' : 'idle') {
@@ -436,11 +450,10 @@
       if (solveController) solveController.abort();
       solveController = null;
       solving = false;
+      solutionSearchMode = 'idle';
       solutions = [];
       activeSolutionIndex = -1;
       resetVerification('idle');
-      generateButton.disabled = false;
-      generateButton.textContent = '生成 3 个答案';
       renderSolutionList();
       setSolutionMessage(message);
     }
@@ -732,48 +745,68 @@
       setSolutionMessage(solutions.length ? '已返回题面，已保存最优解仍然保留。' : '尚未生成答案。');
     });
 
-    generateButton.addEventListener('click', async () => {
+    function stopSolutionSearch() {
+      const stoppedMode = solutionSearchMode;
+      solutionGeneration += 1;
+      if (solveController) solveController.abort();
+      solveController = null;
+      solving = false;
+      solutionSearchMode = 'idle';
+      render();
+      setSolutionMessage(stoppedMode === 'improve' ? '已停止寻找更优解。' : '已停止生成。');
+    }
+
+    async function runSolutionSearch(mode) {
       if (solving) {
-        solutionGeneration += 1;
-        if (solveController) solveController.abort();
-        solveController = null;
-        solving = false;
-        generateButton.textContent = solutions.length ? '继续生成 3 个答案' : '生成 3 个答案';
-        render();
-        setSolutionMessage('已停止生成。');
+        stopSolutionSearch();
         return;
       }
       if (!Solver) {
         setSolutionMessage('答案生成器未加载。', 'error');
         return;
       }
+      const previousBest = solutions[0] || null;
+      if (mode === 'improve' && !previousBest) {
+        setSolutionMessage('请先生成并保存一个最优解。', 'error');
+        return;
+      }
       const generation = ++solutionGeneration;
       const controller = typeof root.AbortController === 'function' ? new root.AbortController() : null;
-      const previousBest = solutions[0] || null;
       solveController = controller;
       solving = true;
+      solutionSearchMode = mode;
       activeSolutionIndex = -1;
       resetVerification('idle');
-      generateButton.textContent = '停止生成';
       render();
-      setSolutionMessage(previousBest
-        ? `正在继续搜索。当前已保存最优解：${previousBest.completionStep} 步，${previousBest.wallCount} 块板。`
-        : '正在逆向搜索并逐板删减，请稍候。');
+      setSolutionMessage(mode === 'improve'
+        ? `正在寻找优于 ${previousBest.completionStep} 步、${previousBest.wallCount} 块板的答案。`
+        : (previousBest
+          ? `正在继续搜索。当前已保存最优解：${previousBest.completionStep} 步，${previousBest.wallCount} 块板。`
+          : '正在逆向搜索并逐板删减，请稍候。'));
       try {
         const question = exportQuestion(model);
+        const requestedCount = mode === 'improve' ? 1 : 3;
         const found = await Solver.generateSolutions(question, {
-          count: 3,
+          count: requestedCount,
           timeLimitMs: 45000,
+          betterThan: mode === 'improve' ? previousBest : null,
           signal: controller?.signal,
           shouldCancel: () => generation !== solutionGeneration,
           onProgress(progress) {
             if (generation !== solutionGeneration) return;
-            setSolutionMessage(`正在生成：已找到 ${progress.found} / 3 个，当前最好顺序 ${progress.bestPrefix} / ${progress.ballCount}。`);
+            setSolutionMessage(mode === 'improve'
+              ? `正在寻找更优解：已搜索 ${progress.restarts} 轮，目标优于 ${previousBest.completionStep} 步、${previousBest.wallCount} 块板。`
+              : `正在生成：已找到 ${progress.found} / ${requestedCount} 个，当前最好顺序 ${progress.bestPrefix} / ${progress.ballCount}。`);
           },
         });
         if (generation !== solutionGeneration) return;
         solutions = mergeSolutions(solutions, found, 3);
-        if (found.length && solutions.length) {
+        if (mode === 'improve' && found.length) {
+          const best = solutions[0];
+          setSolutionMessage(`已找到更优解：${best.completionStep} 步，${best.wallCount} 块板，已替换原最优解。`, 'success');
+        } else if (mode === 'improve') {
+          setSolutionMessage(`没有找到更优解，继续保留：${previousBest.completionStep} 步，${previousBest.wallCount} 块板。`);
+        } else if (found.length && solutions.length) {
           const best = solutions[0];
           const improved = !previousBest || Solver.compareSolutions(best, previousBest) < 0;
           setSolutionMessage(`本轮生成 ${found.length} 个有效答案。${improved ? '已更新' : '继续保留'}最优解：${best.completionStep} 步，${best.wallCount} 块板。`, 'success');
@@ -789,11 +822,14 @@
         if (generation === solutionGeneration) {
           if (solveController === controller) solveController = null;
           solving = false;
-          generateButton.textContent = solutions.length ? '继续生成 3 个答案' : '生成 3 个答案';
+          solutionSearchMode = 'idle';
           render();
         }
       }
-    });
+    }
+
+    generateButton.addEventListener('click', () => runSolutionSearch('generate'));
+    improveBestButton.addEventListener('click', () => runSolutionSearch('improve'));
 
     render();
     return { get model() { return model; }, board };
