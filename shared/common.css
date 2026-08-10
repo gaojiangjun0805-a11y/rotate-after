@@ -305,6 +305,63 @@ button.question-option {
   button { min-height: 42px; }
 }
 
+/* The Windows player uses one immutable 1920x1080 coordinate system. */
+body[data-app="player"] {
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.player-viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+body[data-app="player"] .app-shell {
+  --player-scale: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+  max-width: none;
+  margin: -540px 0 0 -960px;
+  padding: 18px 22px 28px;
+  overflow: hidden;
+  transform: scale(var(--player-scale));
+  transform-origin: center;
+}
+
+body[data-app="player"] .app-header {
+  align-items: center;
+  min-height: 68px;
+  margin-bottom: 18px;
+}
+
+body[data-app="player"] .brand { display: flex; gap: 12px; }
+body[data-app="player"] .brand h1 { font-size: 36px; }
+body[data-app="player"] .header-status { display: block; }
+body[data-app="player"] .workspace {
+  grid-template-columns: minmax(500px, 1fr) minmax(330px, 430px);
+  gap: 22px;
+}
+body[data-app="player"] .board-frame { width: min(100%, 920px); }
+body[data-app="player"] .side-column { width: auto; margin: 0; }
+body[data-app="player"] .tool-section { padding: 18px; }
+body[data-app="player"] .instruction-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+body[data-app="player"] .instruction-chip { min-height: 48px; }
+body[data-app="player"] .board-caption { display: flex; }
+body[data-app="player"] .metric-row { gap: 8px; }
+body[data-app="player"] .metric { padding: 10px; }
+body[data-app="player"] .metric strong { font-size: 21px; }
+body[data-app="player"] .target-order { gap: 11px; }
+body[data-app="player"] .target-ball { width: 34px; height: 34px; font-size: 12px; }
+body[data-app="player"] button { min-height: 40px; }
+body[data-app="player"] .question-gate { min-height: 920px; }
+body[data-app="player"] .question-list { max-height: 520px; overflow: auto; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }

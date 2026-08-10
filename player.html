@@ -6,10 +6,11 @@
   <meta name="theme-color" content="#0b1118">
   <link rel="icon" href="data:,">
   <title>旋转之后 · 答题端</title>
-  <link rel="stylesheet" href="shared/common.css?v=9">
+  <link rel="stylesheet" href="shared/common.css?v=10">
 </head>
 <body data-app="player">
-  <div class="app-shell">
+  <div class="player-viewport" id="playerViewport">
+  <div class="app-shell" id="playerStage">
     <header class="app-header">
       <div class="brand">
         <h1>旋转之后</h1>
@@ -87,11 +88,12 @@
 
     <input class="visually-hidden" id="questionFileInput" type="file" accept="application/json,.json" multiple>
   </div>
+  </div>
 
   <script src="vendor/three.min.js"></script>
   <script src="shared/question-format.js?v=8"></script>
   <script src="shared/maze-core.js?v=7"></script>
   <script src="shared/board-ui.js?v=7"></script>
-  <script src="player.js?v=9"></script>
+  <script src="player.js?v=10"></script>
 </body>
 </html>

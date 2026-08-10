@@ -13,6 +13,15 @@
   'use strict';
 
   const BALL_META = Format.BALL_META;
+  const PLAYER_STAGE_WIDTH = 1920;
+  const PLAYER_STAGE_HEIGHT = 1080;
+
+  function calculateStageScale(viewportWidth, viewportHeight) {
+    const width = Number(viewportWidth);
+    const height = Number(viewportHeight);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return 1;
+    return Math.min(width / PLAYER_STAGE_WIDTH, height / PLAYER_STAGE_HEIGHT);
+  }
 
   function makeModel(question, questionWalls, walls) {
     const combined = Maze.cloneWalls(walls);
@@ -56,7 +65,8 @@
 
   function boot() {
     const gate = root.document.getElementById('questionGate');
-    if (!gate || !root.RotateAfterBoard) return null;
+    const stage = root.document.getElementById('playerStage');
+    if (!gate || !stage || !root.RotateAfterBoard) return null;
     const workspace = root.document.getElementById('playerWorkspace');
     const fileInput = root.document.getElementById('questionFileInput');
     const gateResult = root.document.getElementById('gateResult');
@@ -82,6 +92,13 @@
     let record = [];
     let busy = false;
     let verificationGeneration = 0;
+
+    function syncStageScale() {
+      stage.style.setProperty('--player-scale', String(calculateStageScale(root.innerWidth, root.innerHeight)));
+    }
+
+    syncStageScale();
+    root.addEventListener('resize', syncStageScale, { passive: true });
 
     function setGateMessage(message, error = false) {
       gateResult.textContent = message;
@@ -432,6 +449,7 @@
     resetAnswer,
     eventsThroughStep,
     createVerification,
+    calculateStageScale,
     boot,
   });
 });
