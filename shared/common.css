@@ -358,21 +358,36 @@ body[data-app="player"] .mode-badge {
 }
 body[data-app="player"] .header-status { display: block; }
 body[data-app="player"] .workspace {
-  grid-template-columns: 920px 430px;
-  justify-content: end;
+  grid-template-columns: 430px 920px 430px;
   gap: 48px;
 }
 body[data-app="player"] .board-frame { width: min(100%, 920px); }
+body[data-app="player"] .sequence-column,
 body[data-app="player"] .side-column {
+  min-width: 0;
   width: auto;
   margin: 0;
   align-self: stretch;
-  grid-template-rows: auto auto auto 1fr;
+}
+body[data-app="player"] .sequence-column {
+  display: grid;
+  grid-template-rows: 1fr;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+body[data-app="player"] .sequence-column .tool-section { border-bottom: 0; }
+body[data-app="player"] .side-column {
+  grid-template-rows: auto auto 1fr;
 }
 body[data-app="player"] .verify-section { align-self: end; width: 100%; }
 body[data-app="player"] .tool-section { padding: 18px; }
-body[data-app="player"] .instruction-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
-body[data-app="player"] .instruction-chip { min-height: 48px; }
+body[data-app="player"] .sequence-column .instruction-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+body[data-app="player"] .sequence-column .instruction-chip { min-height: 70px; }
+body[data-app="player"] .sequence-column .instruction-chip .step-no { font-size: 14px; }
+body[data-app="player"] .sequence-column .instruction-chip .turn-icon { font-size: 32px; }
 body[data-app="player"] .board-caption { display: flex; }
 body[data-app="player"] .metric-row { gap: 8px; }
 body[data-app="player"] .metric { padding: 10px; }

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1118">
   <link rel="icon" href="data:,">
   <title>旋转之后 · 答题端</title>
-  <link rel="stylesheet" href="shared/common.css?v=12">
+  <link rel="stylesheet" href="shared/common.css?v=13">
 </head>
 <body data-app="player">
   <div class="player-viewport" id="playerViewport">
@@ -31,6 +31,14 @@
     </section>
 
     <main class="workspace" id="playerWorkspace" hidden>
+      <aside class="sequence-column" aria-label="旋转步骤">
+        <section class="tool-section sequence-section">
+          <p class="section-kicker">SEQUENCE</p>
+          <h2>旋转步骤</h2>
+          <div class="instruction-grid" id="instructionGrid"></div>
+        </section>
+      </aside>
+
       <section class="board-column" aria-label="答题棋盘">
         <div class="board-frame">
           <div id="mazeBoard" class="maze-stage"></div>
@@ -53,12 +61,6 @@
             <button id="clearAnswerWallsBtn">清空新增板</button>
             <button class="danger" id="resetAnswerBtn">重置答案</button>
           </div>
-        </section>
-
-        <section class="tool-section">
-          <p class="section-kicker">SEQUENCE</p>
-          <h2>旋转步骤</h2>
-          <div class="instruction-grid" id="instructionGrid"></div>
         </section>
 
         <section class="tool-section target-section">
