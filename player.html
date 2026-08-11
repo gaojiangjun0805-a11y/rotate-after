@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1118">
   <link rel="icon" href="data:,">
   <title>旋转之后 · 答题端</title>
-  <link rel="stylesheet" href="shared/common.css?v=10">
+  <link rel="stylesheet" href="shared/common.css?v=11">
 </head>
 <body data-app="player">
   <div class="player-viewport" id="playerViewport">
@@ -61,7 +61,14 @@
           <div class="instruction-grid" id="instructionGrid"></div>
         </section>
 
-        <section class="tool-section">
+        <section class="tool-section target-section">
+          <p class="section-kicker">TARGET</p>
+          <h2 id="targetHeading">等待读取题目</h2>
+          <div class="target-order" id="targetOrder"></div>
+          <div class="section-copy" id="releaseOrder">当前出球：无</div>
+        </section>
+
+        <section class="tool-section verify-section">
           <p class="section-kicker">VERIFY</p>
           <h2>验证答案</h2>
           <div class="control-row">
@@ -75,13 +82,6 @@
             <div class="metric"><span>已出球</span><strong id="releasedCount">0 / 0</strong></div>
           </div>
           <div class="result-box" id="playerResult" role="status">可以开始摆板。</div>
-        </section>
-
-        <section class="tool-section">
-          <p class="section-kicker">TARGET</p>
-          <h2 id="targetHeading">等待读取题目</h2>
-          <div class="target-order" id="targetOrder"></div>
-          <div class="section-copy" id="releaseOrder">当前出球：无</div>
         </section>
       </aside>
     </main>

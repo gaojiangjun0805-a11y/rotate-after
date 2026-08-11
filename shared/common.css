@@ -348,7 +348,13 @@ body[data-app="player"] .workspace {
   gap: 22px;
 }
 body[data-app="player"] .board-frame { width: min(100%, 920px); }
-body[data-app="player"] .side-column { width: auto; margin: 0; }
+body[data-app="player"] .side-column {
+  width: auto;
+  margin: 0;
+  align-self: stretch;
+  grid-template-rows: auto auto auto 1fr;
+}
+body[data-app="player"] .verify-section { align-self: end; width: 100%; }
 body[data-app="player"] .tool-section { padding: 18px; }
 body[data-app="player"] .instruction-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
 body[data-app="player"] .instruction-chip { min-height: 48px; }
