@@ -335,17 +335,32 @@ body[data-app="player"] .app-shell {
 }
 
 body[data-app="player"] .app-header {
+  position: relative;
   align-items: center;
+  justify-content: flex-end;
   min-height: 68px;
   margin-bottom: 18px;
 }
 
-body[data-app="player"] .brand { display: flex; gap: 12px; }
-body[data-app="player"] .brand h1 { font-size: 36px; }
+body[data-app="player"] .brand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  transform: translate(-50%, -50%);
+}
+body[data-app="player"] .brand h1 { font-size: 36px; white-space: nowrap; }
+body[data-app="player"] .mode-badge {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 12px);
+  transform: translateY(-50%);
+}
 body[data-app="player"] .header-status { display: block; }
 body[data-app="player"] .workspace {
-  grid-template-columns: minmax(500px, 1fr) minmax(330px, 430px);
-  gap: 22px;
+  grid-template-columns: 920px 430px;
+  justify-content: end;
+  gap: 48px;
 }
 body[data-app="player"] .board-frame { width: min(100%, 920px); }
 body[data-app="player"] .side-column {
@@ -367,6 +382,28 @@ body[data-app="player"] .target-ball { width: 34px; height: 34px; font-size: 12p
 body[data-app="player"] button { min-height: 40px; }
 body[data-app="player"] .question-gate { min-height: 920px; }
 body[data-app="player"] .question-list { max-height: 520px; overflow: auto; }
+
+.fullscreen-toggle {
+  position: absolute;
+  bottom: 10px;
+  left: 22px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+.fullscreen-toggle input {
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--accent);
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }

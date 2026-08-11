@@ -23,6 +23,29 @@
     return Math.min(width / PLAYER_STAGE_WIDTH, height / PLAYER_STAGE_HEIGHT);
   }
 
+  async function setFullscreen(document, enabled) {
+    if (!document) return false;
+    if (enabled) {
+      if (document.fullscreenElement) return true;
+      if (typeof document.documentElement?.requestFullscreen !== 'function') return false;
+      try {
+        await document.documentElement.requestFullscreen();
+        return Boolean(document.fullscreenElement);
+      } catch (error) {
+        return false;
+      }
+    }
+
+    if (!document.fullscreenElement) return true;
+    if (typeof document.exitFullscreen !== 'function') return false;
+    try {
+      await document.exitFullscreen();
+      return !document.fullscreenElement;
+    } catch (error) {
+      return false;
+    }
+  }
+
   function makeModel(question, questionWalls, walls) {
     const combined = Maze.cloneWalls(walls);
     return {
@@ -81,6 +104,7 @@
     const continuousButton = root.document.getElementById('continuousVerifyBtn');
     const returnButton = root.document.getElementById('returnEditBtn');
     const clearButton = root.document.getElementById('clearAnswerWallsBtn');
+    const fullscreenToggle = root.document.getElementById('fullscreenToggle');
     const questionEntries = [];
     let activeEntry = null;
     let nextQuestionId = 1;
@@ -99,6 +123,15 @@
 
     syncStageScale();
     root.addEventListener('resize', syncStageScale, { passive: true });
+    fullscreenToggle.addEventListener('change', async () => {
+      await setFullscreen(root.document, fullscreenToggle.checked);
+      fullscreenToggle.checked = Boolean(root.document.fullscreenElement);
+      syncStageScale();
+    });
+    root.document.addEventListener('fullscreenchange', () => {
+      fullscreenToggle.checked = Boolean(root.document.fullscreenElement);
+      syncStageScale();
+    });
 
     function setGateMessage(message, error = false) {
       gateResult.textContent = message;
@@ -450,6 +483,7 @@
     eventsThroughStep,
     createVerification,
     calculateStageScale,
+    setFullscreen,
     boot,
   });
 });
