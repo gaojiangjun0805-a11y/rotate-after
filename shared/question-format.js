@@ -19,8 +19,8 @@
     Y: Object.freeze({ name: '黄', color: '#f1c82d' }),
     B: Object.freeze({ name: '蓝', color: '#4382e8' }),
     G: Object.freeze({ name: '绿', color: '#28c76f' }),
-    P: Object.freeze({ name: '紫', color: '#a358e6' }),
-    O: Object.freeze({ name: '橙', color: '#f28a32' }),
+    P: Object.freeze({ name: '橙', color: '#ff8a00' }),
+    O: Object.freeze({ name: '深橙', color: '#c85316' }),
   });
   const MIN_BALL_COUNT = 3;
   const MAX_BALL_COUNT = 6;

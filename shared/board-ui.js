@@ -12,8 +12,8 @@
     Y: 0xf2c927,
     B: 0x3f7edc,
     G: 0x2dbd68,
-    P: 0x9650d8,
-    O: 0xf28a32,
+    P: 0xff8a00,
+    O: 0xc85316,
   });
 
   function sameEdge(left, right) {
@@ -717,6 +717,7 @@
   return Object.freeze({
     LOGICAL_BOARD,
     BOARD_INSET,
+    BALL_COLORS,
     pickEdge,
     clientToBoard,
     rotationFitScale,
